@@ -1,0 +1,148 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../vendor/livewire/livewire/src/**/*.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-headline: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+
+    --color-primary:         #002452;
+    --color-primary-light:   #1B3A6B;
+    --color-primary-accent:  #2E86AB;
+    --color-secondary:       #006c49;
+    --color-secondary-light: #10B981;
+    --color-warning:         #F59E0B;
+    --color-danger:          #EF4444;
+    --color-surface:         #F8FAFC;
+    --color-surface-card:    #ffffff;
+    --color-border:          #E5E7EB;
+    --color-text:            #1F2937;
+    --color-text-muted:      #6B7280;
+    --color-reserve:         #6366F1;
+}
+
+@layer base {
+    body {
+        background-color: var(--color-surface);
+        color: var(--color-text);
+        font-family: var(--font-sans);
+    }
+    h1, h2, h3, h4, h5 {
+        font-family: var(--font-headline);
+    }
+}
+
+@layer components {
+    .soft-card {
+        background-color: var(--color-surface-card);
+        border: 1px solid var(--color-border);
+        border-radius: 0.75rem;
+        transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .soft-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+        border-color: #d7e2ff;
+    }
+    .sidebar-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.625rem 0.75rem;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: rgba(255,255,255,0.65);
+        transition: background-color 0.15s, color 0.15s;
+        text-decoration: none;
+    }
+    .sidebar-item:hover {
+        background-color: rgba(255,255,255,0.07);
+        color: rgba(255,255,255,0.95);
+    }
+    .sidebar-item-active {
+        background-color: rgba(172, 199, 255, 0.12);
+        color: #acc7ff;
+        box-shadow: inset 3px 0 0 #acc7ff;
+    }
+    .btn-primary {
+        background-color: var(--color-primary);
+        color: #ffffff;
+        padding: 0.5rem 1.25rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        font-size: 0.875rem;
+        transition: opacity 0.15s, transform 0.1s;
+        cursor: pointer;
+        border: none;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-primary:active { transform: scale(0.97); }
+
+    .btn-secondary {
+        background-color: var(--color-secondary);
+        color: #ffffff;
+        padding: 0.5rem 1.25rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        font-size: 0.875rem;
+        transition: opacity 0.15s;
+        cursor: pointer;
+        border: none;
+    }
+    .btn-secondary:hover { opacity: 0.9; }
+
+    .badge-green  { background: #d1fae5; color: #065f46; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+    .badge-red    { background: #fee2e2; color: #991b1b; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+    .badge-yellow { background: #fef3c7; color: #92400e; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+    .badge-blue   { background: #dbeafe; color: #1e40af; padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+
+    .kpi-card {
+        background-color: var(--color-surface-card);
+        border: 1px solid var(--color-border);
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+    }
+    .kpi-value {
+        font-family: var(--font-headline);
+        font-size: 1.375rem;
+        font-weight: 700;
+        color: var(--color-text);
+        margin-top: 0.25rem;
+    }
+    .kpi-label {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--color-text-muted);
+    }
+
+    .alert-banner {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+        border-radius: 0.75rem;
+        border: 1px solid;
+    }
+    .alert-green  { background: #f0fdf4; border-color: #bbf7d0; }
+    .alert-yellow { background: #fffbeb; border-color: #fde68a; }
+    .alert-red    { background: #fef2f2; border-color: #fecaca; }
+
+    .progress-bar-track {
+        width: 100%;
+        height: 6px;
+        background-color: var(--color-border);
+        border-radius: 999px;
+        overflow: hidden;
+    }
+    .progress-bar-fill {
+        height: 100%;
+        border-radius: 999px;
+        transition: width 0.4s ease;
+    }
+}
