@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Budget;
 use App\Models\QuotaLog;
 use App\Models\Revenu;
+use App\Services\AlerteService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -25,11 +26,13 @@ class RevenusController extends Controller
 
         $budget = $this->getBudgetOuCreer($mois, $annee);
 
-        $revenus  = $budget->revenus()->orderByDesc('date')->get();
-        $totalQuota = $revenus->where('quota_applique', true)->sum('montant_quota');
-        $totalDispo = $revenus->where('quota_applique', true)->sum('montant_dispo');
-        $soldeReserve = $totalQuota - $revenus->where('quota_applique', true)
-            ->sum(fn($r) => optional($r->quotaLog)->debloquer ?? 0);
+        $revenus       = $budget->revenus()->orderByDesc('date')->get();
+        $bonusRevenus  = $revenus->where('quota_applique', true);
+        // montant_quota = 30% dépensable, montant_dispo = 70% réserve
+        $totalDepensable = (float) $bonusRevenus->sum('montant_quota');  // 30%
+        $totalReserve    = (float) $bonusRevenus->sum('montant_dispo');   // 70%
+        $debloque        = (float) $bonusRevenus->sum(fn($r) => optional($r->quotaLog)->debloquer ?? 0);
+        $soldeReserve    = $totalReserve - $debloque; // réserve nette après déblocages
 
         $budgetPrecedent = Budget::where('user_id', Auth::id())
             ->where(function ($q) use ($mois, $annee) {
@@ -49,7 +52,7 @@ class RevenusController extends Controller
 
         return view('revenus.index', compact(
             'budget', 'revenus', 'mois', 'annee',
-            'totalQuota', 'totalDispo', 'soldeReserve', 'variationSalaire'
+            'totalDepensable', 'totalReserve', 'soldeReserve', 'variationSalaire'
         ));
     }
 
@@ -97,7 +100,10 @@ class RevenusController extends Controller
             ]);
         }
 
-        return back()->with('success', 'Revenu ajouté. Quota 30% appliqué : ' . number_format($revenu->montant_quota, 0, ',', ' ') . ' FCFA en réserve.');
+        AlerteService::quotaApplique(Auth::user(), $revenu->montant_brut, $revenu->montant_quota, $revenu->montant_dispo);
+        AlerteService::analyserBudget(Auth::user(), $budget->fresh());
+
+        return back()->with('success', 'Revenu ajouté. Dépensable ce mois : ' . number_format($revenu->montant_quota, 0, ',', ' ') . ' FCFA (30%) · Réserve : ' . number_format($revenu->montant_dispo, 0, ',', ' ') . ' FCFA (70%).');
     }
 
     public function debloquerReserve(Request $request, Revenu $revenu)

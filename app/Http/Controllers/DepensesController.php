@@ -7,6 +7,7 @@ use App\Models\Categorie;
 use App\Models\Depense;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use App\Services\AlerteService;
 use Illuminate\Support\Facades\Auth;
 
 class DepensesController extends Controller
@@ -91,6 +92,8 @@ class DepensesController extends Controller
             'note'         => $data['note'] ?? null,
             'imprevue'     => $request->boolean('imprevue'),
         ]);
+
+        AlerteService::analyserBudget(Auth::user(), $budget->fresh());
 
         return back()->with('success', 'Dépense de ' . number_format($data['montant'], 0, ',', "\u{00A0}") . ' FCFA enregistrée.');
     }

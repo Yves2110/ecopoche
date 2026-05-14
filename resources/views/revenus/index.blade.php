@@ -37,24 +37,24 @@
         <p class="kpi-value">{{ number_format((int)$budget->salaire_fixe, 0, ',', ' ') }} FCFA</p>
     </div>
 
-    {{-- Bonus disponible (70%) --}}
-    <div class="kpi-card">
+    {{-- Disponible ce mois (30%) --}}
+    <div class="kpi-card border-[#006c49]/30 bg-[#006c49]/5">
         <div class="flex justify-between items-start mb-3">
-            <span class="material-symbols-outlined text-[#6B7280] text-lg">account_balance</span>
-            <span class="text-[10px] bg-[#dbeafe] text-[#1d4ed8] font-bold px-2 py-0.5 rounded-full">70% dispo</span>
+            <span class="material-symbols-outlined text-[#006c49] text-lg">payments</span>
+            <span class="text-[10px] bg-[#d1fae5] text-[#065f46] font-bold px-2 py-0.5 rounded-full">30% utilisable</span>
         </div>
-        <p class="kpi-label">Bonus disponible</p>
-        <p class="kpi-value">{{ number_format((int)$totalDispo, 0, ',', ' ') }} FCFA</p>
+        <p class="kpi-label text-[#006c49]">Dépensable ce mois (30%)</p>
+        <p class="kpi-value text-[#006c49]">{{ number_format((int)$totalDepensable, 0, ',', ' ') }} FCFA</p>
     </div>
 
-    {{-- Solde de réserve (30%) --}}
+    {{-- Solde de réserve conservé (70%) --}}
     <div class="kpi-card border-[#6366F1]/20 bg-[#6366F1]/5">
         <div class="flex justify-between items-start mb-3">
             <span class="material-symbols-outlined text-[#6366F1] text-lg">lock</span>
-            <span class="text-[10px] bg-[#ede9fe] text-[#5b21b6] font-bold px-2 py-0.5 rounded-full">Réserve 30%</span>
+            <span class="text-[10px] bg-[#ede9fe] text-[#5b21b6] font-bold px-2 py-0.5 rounded-full">70% réserve</span>
         </div>
-        <p class="kpi-label text-[#5b21b6]">Solde de réserve</p>
-        <p class="kpi-value text-[#5b21b6]">{{ number_format((int)$soldeReserve, 0, ',', ' ') }} FCFA</p>
+        <p class="kpi-label text-[#5b21b6]">Réserve bloquée (70%)</p>
+        <p class="kpi-value text-[#5b21b6]">{{ number_format((int)$totalReserve, 0, ',', ' ') }} FCFA</p>
     </div>
 
     {{-- Total revenus --}}
@@ -62,8 +62,8 @@
         <div class="flex justify-between items-start mb-3">
             <span class="material-symbols-outlined text-[#006c49] text-lg">show_chart</span>
         </div>
-        <p class="kpi-label text-[#006c49]">Total disponible</p>
-        <p class="kpi-value text-[#006c49]">{{ number_format((int)($budget->salaire_fixe + $totalDispo), 0, ',', ' ') }} FCFA</p>
+        <p class="kpi-label text-[#006c49]">Budget utilisable (fixe + 30%)</p>
+        <p class="kpi-value text-[#006c49]">{{ number_format((int)($budget->salaire_fixe + $totalDepensable), 0, ',', ' ') }} FCFA</p>
     </div>
 </div>
 
@@ -108,7 +108,7 @@
                 <span class="material-symbols-outlined text-[#006c49]">add_circle</span>
                 Ajouter un revenu variable
             </h3>
-            <p class="text-xs text-[#6B7280] mb-4">Bonus, prime, freelance, vente... Le quota de 30% sera appliqué automatiquement.</p>
+            <p class="text-xs text-[#6B7280] mb-4">Bonus, prime, freelance, vente... Les <strong>70%</strong> sont mis en réserve, les <strong>30%</strong> restants sont dépensables ce mois.</p>
 
             <form method="POST" action="{{ route('revenus.store') }}" x-data="{ montant: '', quota: 0, dispo: 0 }" class="space-y-4">
                 @csrf
@@ -136,7 +136,7 @@
                         <span class="pl-3 text-xs font-bold text-[#6B7280] whitespace-nowrap select-none">FCFA</span>
                         <input type="number" name="montant_brut" min="1" step="1"
                                x-model="montant"
-                               @input="montant = Math.floor(montant); quota = Math.round(montant * 0.30); dispo = Math.round(montant * 0.70)"
+                               @input="montant = Math.floor(montant); quota = Math.round(montant * 0.30); dispo = montant - quota"
                                inputmode="numeric" pattern="[0-9]*"
                                class="flex-1 pr-3 py-2.5 text-sm bg-transparent outline-none"
                                placeholder="Ex: 150 000" />
@@ -146,12 +146,12 @@
                 {{-- Visualisation quota en temps réel --}}
                 <div x-show="montant > 0" class="grid grid-cols-2 gap-3 p-3 bg-[#F8FAFC] rounded-lg border border-[#E5E7EB]">
                     <div class="text-center">
-                        <p class="text-[10px] font-bold uppercase text-[#5b21b6] tracking-wide">Réserve (30%)</p>
-                        <p class="font-headline font-bold text-sm text-[#5b21b6]" x-text="Number(quota).toLocaleString('fr-FR') + ' FCFA'"></p>
+                        <p class="text-[10px] font-bold uppercase text-[#006c49] tracking-wide">Dépensable (30%)</p>
+                        <p class="font-headline font-bold text-sm text-[#006c49]" x-text="Number(quota).toLocaleString('fr-FR') + ' FCFA'"></p>
                     </div>
                     <div class="text-center border-l border-[#E5E7EB]">
-                        <p class="text-[10px] font-bold uppercase text-[#006c49] tracking-wide">Disponible (70%)</p>
-                        <p class="font-headline font-bold text-sm text-[#006c49]" x-text="Number(dispo).toLocaleString('fr-FR') + ' FCFA'"></p>
+                        <p class="text-[10px] font-bold uppercase text-[#5b21b6] tracking-wide">Réserve (70%)</p>
+                        <p class="font-headline font-bold text-sm text-[#5b21b6]" x-text="Number(dispo).toLocaleString('fr-FR') + ' FCFA'"></p>
                     </div>
                 </div>
 
@@ -211,11 +211,11 @@
 
                     @if($revenu->quota_applique)
                     <div class="mt-2 ml-12 flex items-center gap-3 flex-wrap">
-                        <span class="text-[10px] bg-[#ede9fe] text-[#5b21b6] font-bold px-2 py-0.5 rounded-full">
-                            Réserve : {{ number_format((int)$revenu->montant_quota, 0, ',', ' ') }} FCFA
-                        </span>
                         <span class="text-[10px] bg-[#d1fae5] text-[#065f46] font-bold px-2 py-0.5 rounded-full">
-                            Dispo : {{ number_format((int)$revenu->montant_dispo, 0, ',', ' ') }} FCFA
+                            Dépensable (30%) : {{ number_format((int)$revenu->montant_quota, 0, ',', ' ') }} FCFA
+                        </span>
+                        <span class="text-[10px] bg-[#ede9fe] text-[#5b21b6] font-bold px-2 py-0.5 rounded-full">
+                            Réserve (70%) : {{ number_format((int)$revenu->montant_dispo, 0, ',', ' ') }} FCFA
                         </span>
                         @if(optional($revenu->quotaLog)->reserve_restante > 0)
                         <button @click="debloquerOpen = !debloquerOpen"

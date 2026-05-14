@@ -21,12 +21,12 @@ class DashboardController extends Controller
         );
 
         $revenus = $budget->revenus()->get();
-        $totalQuotaRev   = (float) $revenus->where('quota_applique', true)->sum('montant_quota');
-        $totalDispoBonus = (float) $revenus->where('quota_applique', true)->sum('montant_dispo');
+        $totalDepensable = (float) $revenus->where('quota_applique', true)->sum('montant_quota'); // 30% utilisable
+        $totalReserve    = (float) $revenus->where('quota_applique', true)->sum('montant_dispo'); // 70% bloqué
         $totalDepenses   = (float) $budget->depenses()->sum('montant');
-        $soldeDisponible = (float) $budget->salaire_fixe + $totalDispoBonus - $totalDepenses;
+        $soldeDisponible = (float) $budget->salaire_fixe + $totalDepensable - $totalDepenses;
 
-        $revenuTotal = $budget->salaire_fixe + $totalDispoBonus;
+        $revenuTotal = $budget->salaire_fixe + $totalDepensable;
         $sante = match(true) {
             $revenuTotal == 0                                                              => 'neutre',
             $totalDepenses == 0                                                            => 'sain',
@@ -77,7 +77,7 @@ class DashboardController extends Controller
 
         return view('dashboard', compact(
             'budget', 'revenus',
-            'totalQuotaRev', 'totalDispoBonus', 'totalDepenses', 'soldeDisponible',
+            'totalDepensable', 'totalReserve', 'totalDepenses', 'soldeDisponible',
             'sante', 'joursLabels', 'joursData',
             'parCategorie', 'dernieresDepenses', 'alertes',
             'mois', 'annee'

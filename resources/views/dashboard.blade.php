@@ -70,13 +70,13 @@
         <p class="kpi-value">{{ number_format((int)$budget->salaire_fixe, 0, ',', "\u{00A0}") }} FCFA</p>
     </div>
 
-    <div class="kpi-card">
+    <div class="kpi-card border-[#006c49]/20 bg-[#006c49]/5">
         <div class="flex justify-between items-start mb-3">
-            <span class="material-symbols-outlined text-[#6B7280] text-lg">account_balance</span>
-            <span class="badge-blue">70% dispo</span>
+            <span class="material-symbols-outlined text-[#006c49] text-lg">payments</span>
+            <span class="text-[10px] bg-[#d1fae5] text-[#065f46] font-bold px-2 py-0.5 rounded-full">30% bonus</span>
         </div>
-        <p class="kpi-label">Bonus disponible</p>
-        <p class="kpi-value">{{ number_format((int)$totalDispoBonus, 0, ',', "\u{00A0}") }} FCFA</p>
+        <p class="kpi-label text-[#006c49]">Bonus dépensable</p>
+        <p class="kpi-value text-[#006c49]">{{ number_format((int)$totalDepensable, 0, ',', "\u{00A0}") }} FCFA</p>
     </div>
 
     <div class="kpi-card">

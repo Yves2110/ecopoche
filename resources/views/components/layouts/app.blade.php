@@ -73,10 +73,20 @@
             <span>Charges fixes</span>
         </a>
 
-        <a href="#"
+        <a href="{{ route('epargne.index') }}"
            class="sidebar-item {{ request()->routeIs('epargne.*') ? 'sidebar-item-active' : '' }}">
             <span class="material-symbols-outlined text-xl">savings</span>
             <span>Épargne</span>
+        </a>
+
+        <a href="{{ route('alertes.index') }}"
+           class="sidebar-item {{ request()->routeIs('alertes.*') ? 'sidebar-item-active' : '' }} relative">
+            <span class="material-symbols-outlined text-xl">notifications</span>
+            <span>Alertes</span>
+            @php $sidebarNbAlertes = auth()->check() ? \App\Models\Alerte::where('user_id', auth()->id())->whereNull('lu_at')->count() : 0; @endphp
+            @if($sidebarNbAlertes > 0)
+            <span class="ml-auto text-[10px] bg-[#DC2626] text-white font-bold px-1.5 py-0.5 rounded-full">{{ $sidebarNbAlertes }}</span>
+            @endif
         </a>
 
         <p class="text-[9px] font-bold uppercase tracking-widest text-white/30 px-3 mt-4 mb-2">Analyse</p>
@@ -89,7 +99,7 @@
 
         @if(auth()->user()?->role === 'super_admin' || auth()->user()?->role === 'admin')
         <p class="text-[9px] font-bold uppercase tracking-widest text-white/30 px-3 mt-4 mb-2">Administration</p>
-        <a href="#"
+        <a href="{{ route('admin.index') }}"
            class="sidebar-item {{ request()->routeIs('admin.*') ? 'sidebar-item-active' : '' }}">
             <span class="material-symbols-outlined text-xl">admin_panel_settings</span>
             <span>Administration</span>
@@ -148,11 +158,92 @@
             @endisset
 
             {{-- Notifications --}}
-            <div class="relative" x-data="{ open: false }">
+            @php $nbAlertes = auth()->check() ? \App\Models\Alerte::where('user_id', auth()->id())->whereNull('lu_at')->count() : 0; @endphp
+            <div class="relative" x-data="{ open: false }" @click.outside="open = false">
                 <button @click="open = !open" class="relative p-2 rounded-full hover:bg-gray-100 transition-colors">
-                    <span class="material-symbols-outlined text-[#6B7280] text-xl">notifications</span>
-                    <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-[#EF4444] rounded-full"></span>
+                    <span class="material-symbols-outlined text-[#6B7280] text-xl"
+                          style="{{ $nbAlertes > 0 ? 'font-variation-settings:\'FILL\' 1' : '' }}; color: {{ $nbAlertes > 0 ? '#DC2626' : '#6B7280' }}">notifications</span>
+                    @if($nbAlertes > 0)
+                    <span class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-[#DC2626] text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
+                        {{ $nbAlertes > 99 ? '99+' : $nbAlertes }}
+                    </span>
+                    @endif
                 </button>
+
+                {{-- Mini-dropdown --}}
+                <div x-show="open" x-transition
+                     class="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-[#E5E7EB] z-50 overflow-hidden">
+                    <div class="px-4 py-3 border-b border-[#E5E7EB] flex items-center justify-between">
+                        <span class="font-headline font-bold text-sm text-[#1F2937]">Notifications</span>
+                        @if($nbAlertes > 0)
+                        <span class="text-[10px] bg-[#DC2626] text-white font-bold px-2 py-0.5 rounded-full">{{ $nbAlertes }} non lue{{ $nbAlertes > 1 ? 's' : '' }}</span>
+                        @endif
+                    </div>
+
+                    @php
+                        $dernieresAlertes = auth()->check()
+                            ? \App\Models\Alerte::where('user_id', auth()->id())
+                                ->whereNull('lu_at')
+                                ->orderByDesc('created_at')
+                                ->take(5)
+                                ->get()
+                            : collect();
+                        $alerteConfig = [
+                            'budget_sain'     => ['#006c49', 'check_circle'],
+                            'attention'       => ['#D97706', 'warning'],
+                            'critique'        => ['#DC2626', 'error'],
+                            'plafond_80'      => ['#D97706', 'speed'],
+                            'plafond_depasse' => ['#DC2626', 'block'],
+                            'epargne_deficit' => ['#D97706', 'savings'],
+                            'reajustement'    => ['#6366F1', 'tune'],
+                            'quota_applique'  => ['#002452', 'account_balance'],
+                        ];
+                    @endphp
+
+                    <div class="max-h-64 overflow-y-auto divide-y divide-[#F3F4F6]">
+                        @forelse($dernieresAlertes as $al)
+                        @php [$acol, $aicon] = $alerteConfig[$al->type] ?? ['#6B7280', 'notifications']; @endphp
+                        <div class="flex items-start gap-2 px-3 py-2.5 hover:bg-[#F8FAFC] group">
+                            <span class="material-symbols-outlined text-base mt-0.5 flex-shrink-0"
+                                  style="color: {{ $acol }};font-variation-settings:'FILL' 1">{{ $aicon }}</span>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-xs text-[#1F2937] leading-snug line-clamp-2">{{ $al->message }}</p>
+                                <p class="text-[10px] text-[#9CA3AF] mt-0.5">{{ $al->created_at->diffForHumans() }}</p>
+                            </div>
+                            <div class="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <form method="POST" action="{{ route('alertes.lue', $al) }}">
+                                    @csrf
+                                    <button type="submit" title="Marquer lue" class="p-1 rounded text-[#9CA3AF] hover:text-[#006c49] hover:bg-[#d1fae5]">
+                                        <span class="material-symbols-outlined text-sm">check</span>
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ route('alertes.supprimer', $al) }}">
+                                    @csrf @method('DELETE')
+                                    <button type="submit" title="Supprimer" class="p-1 rounded text-[#9CA3AF] hover:text-[#DC2626] hover:bg-[#fee2e2]">
+                                        <span class="material-symbols-outlined text-sm">close</span>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        @empty
+                        <div class="px-4 py-6 text-center text-xs text-[#9CA3AF]">Aucune nouvelle notification</div>
+                        @endforelse
+                    </div>
+
+                    <div class="px-4 py-3 border-t border-[#E5E7EB] flex items-center justify-between">
+                        <a href="{{ route('alertes.index') }}" class="text-xs font-semibold text-[#002452] hover:underline">
+                            Voir toutes les alertes →
+                        </a>
+                        @if($nbAlertes > 0)
+                        <form method="POST" action="{{ route('alertes.tout_lire') }}">
+                            @csrf
+                            <button type="submit" class="text-xs text-[#6B7280] hover:text-[#1F2937] font-medium">
+                                Tout lire
+                            </button>
+                        </form>
+                        @endif
+                    </div>
+                </div>
             </div>
 
             {{-- User --}}
@@ -203,13 +294,14 @@
             <span class="material-symbols-outlined text-2xl" style="{{ request()->routeIs('depenses.*') ? "font-variation-settings:'FILL' 1;" : '' }}">receipt_long</span>
             <span class="text-[9px] font-medium">Dépenses</span>
         </a>
-        <a href="#" class="flex flex-col items-center gap-0.5 px-3 py-1 {{ request()->routeIs('epargne.*') ? 'text-[#002452]' : 'text-[#6B7280]' }}">
+        <a href="{{ route('epargne.index') }}" class="flex flex-col items-center gap-0.5 px-3 py-1 {{ request()->routeIs('epargne.*') ? 'text-[#002452]' : 'text-[#6B7280]' }}">
             <span class="material-symbols-outlined text-2xl">savings</span>
             <span class="text-[9px] font-medium">Épargne</span>
         </a>
-        <a href="#" class="flex flex-col items-center gap-0.5 px-3 py-1 {{ request()->routeIs('rapports.*') ? 'text-[#002452]' : 'text-[#6B7280]' }}">
-            <span class="material-symbols-outlined text-2xl">bar_chart</span>
-            <span class="text-[9px] font-medium">Rapports</span>
+        <a href="{{ route('alertes.index') }}" class="flex flex-col items-center gap-0.5 px-3 py-1 relative {{ request()->routeIs('alertes.*') ? 'text-[#002452]' : 'text-[#6B7280]' }}">
+            <span class="material-symbols-outlined text-2xl" style="{{ request()->routeIs('alertes.*') ? "font-variation-settings:'FILL' 1;" : '' }}">notifications</span>
+            @if(isset($nbAlertes) && $nbAlertes > 0)<span class="absolute top-0.5 right-1 w-4 h-4 bg-[#DC2626] rounded-full text-white text-[8px] font-bold flex items-center justify-center">{{ $nbAlertes }}</span>@endif
+            <span class="text-[9px] font-medium">Alertes</span>
         </a>
     </nav>
 </div>
