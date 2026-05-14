@@ -31,28 +31,49 @@
     $epargneReel = $epargne ? (int)$epargne->reel : 0;
     $epargnePct  = $epargneObjt > 0 ? min(100, round($epargneReel / $epargneObjt * 100)) : 0;
 @endphp
+@php
+    // Couleurs dynamiques selon la progression d'épargne
+    if ($epargneObjt <= 0) {
+        $epCfg = ['bg' => '#002452',   'accent' => '#6ffbbe', 'bar' => '#6ffbbe',  'badge' => 'Non défini', 'badgecol' => 'bg-white/20 text-white/70', 'icon' => 'savings'];
+    } elseif ($epargnePct >= 100) {
+        $epCfg = ['bg' => '#006c49',   'accent' => '#6ffbbe', 'bar' => '#ffffff',  'badge' => 'Objectif atteint !', 'badgecol' => 'bg-white/20 text-white font-bold', 'icon' => 'check_circle'];
+    } elseif ($epargnePct >= 50) {
+        $epCfg = ['bg' => '#002452',   'accent' => '#6ffbbe', 'bar' => '#6ffbbe',  'badge' => 'En bonne voie', 'badgecol' => 'bg-[#6ffbbe]/20 text-[#6ffbbe]', 'icon' => 'trending_up'];
+    } elseif ($epargnePct >= 20) {
+        $epCfg = ['bg' => '#92400e',   'accent' => '#FCD34D', 'bar' => '#FCD34D',  'badge' => 'À améliorer', 'badgecol' => 'bg-[#FCD34D]/20 text-[#FCD34D]', 'icon' => 'warning'];
+    } else {
+        $epCfg = ['bg' => '#7f1d1d',   'accent' => '#FCA5A5', 'bar' => '#FCA5A5',  'badge' => 'Insuffisant', 'badgecol' => 'bg-[#FCA5A5]/20 text-[#FCA5A5]', 'icon' => 'error'];
+    }
+@endphp
     {{-- Bloc épargne --}}
-    <div class="col-span-12 lg:col-span-4 bg-[#002452] text-white p-5 rounded-xl flex flex-col justify-between shadow-lg">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="font-headline text-base font-bold">Épargne du mois</h3>
-            <span class="material-symbols-outlined text-[#6ffbbe] text-xl">savings</span>
+    <div class="col-span-12 lg:col-span-4 text-white p-5 rounded-xl flex flex-col justify-between shadow-lg transition-colors duration-500"
+         style="background-color: {{ $epCfg['bg'] }}">
+        <div class="flex justify-between items-center mb-3">
+            <div>
+                <h3 class="font-headline text-base font-bold">Épargne du mois</h3>
+                <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mt-1 {{ $epCfg['badgecol'] }}">
+                    {{ $epCfg['badge'] }}
+                </span>
+            </div>
+            <span class="material-symbols-outlined text-xl" style="color:{{ $epCfg['accent'] }};font-variation-settings:'FILL' 1;">{{ $epCfg['icon'] }}</span>
         </div>
         <div>
             <div class="flex justify-between text-xs mb-1">
                 <span class="text-white/70">Progression</span>
-                <span class="font-bold text-[#6ffbbe]">{{ $epargnePct }}%</span>
+                <span class="font-bold" style="color:{{ $epCfg['accent'] }}">{{ $epargnePct }}%</span>
             </div>
-            <div class="progress-bar-track bg-white/10">
-                <div class="progress-bar-fill bg-[#6ffbbe]" style="width: {{ $epargnePct }}%"></div>
+            <div class="h-2 rounded-full bg-white/10 overflow-hidden">
+                <div class="h-full rounded-full transition-all duration-700"
+                     style="width: {{ $epargnePct }}%; background-color: {{ $epCfg['bar'] }}"></div>
             </div>
         </div>
-        <div class="mt-5 pt-4 border-t border-white/10 flex items-end justify-between">
+        <div class="mt-4 pt-4 border-t border-white/10 flex items-end justify-between">
             <div>
                 <p class="text-[10px] text-white/50 font-bold uppercase">Objectif</p>
                 <p class="font-headline text-lg font-bold">{{ number_format($epargneObjt, 0, ',', "\u{00A0}") }} FCFA</p>
             </div>
             <div class="text-right">
-                <p class="text-[10px] text-[#6ffbbe] font-bold uppercase">Réel</p>
+                <p class="text-[10px] font-bold uppercase" style="color:{{ $epCfg['accent'] }}">Réel</p>
                 <p class="font-headline text-lg font-bold">{{ number_format($epargneReel, 0, ',', "\u{00A0}") }} FCFA</p>
             </div>
         </div>

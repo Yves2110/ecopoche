@@ -67,12 +67,6 @@
             <span>Dépenses</span>
         </a>
 
-        <a href="#"
-           class="sidebar-item {{ request()->routeIs('charges.*') ? 'sidebar-item-active' : '' }}">
-            <span class="material-symbols-outlined text-xl">category</span>
-            <span>Charges fixes</span>
-        </a>
-
         <a href="{{ route('epargne.index') }}"
            class="sidebar-item {{ request()->routeIs('epargne.*') ? 'sidebar-item-active' : '' }}">
             <span class="material-symbols-outlined text-xl">savings</span>
@@ -91,7 +85,7 @@
 
         <p class="text-[9px] font-bold uppercase tracking-widest text-white/30 px-3 mt-4 mb-2">Analyse</p>
 
-        <a href="#"
+        <a href="{{ route('rapports.index') }}"
            class="sidebar-item {{ request()->routeIs('rapports.*') ? 'sidebar-item-active' : '' }}">
             <span class="material-symbols-outlined text-xl">bar_chart</span>
             <span>Rapports</span>
@@ -109,7 +103,8 @@
 
     {{-- Bottom : actions --}}
     <div class="px-3 py-4 border-t border-white/10 space-y-1">
-        <a href="#" class="sidebar-item">
+        <a href="{{ route('profil.index') }}"
+           class="sidebar-item {{ request()->routeIs('profil.*') ? 'sidebar-item-active' : '' }}">
             <span class="material-symbols-outlined text-xl">settings</span>
             <span>Paramètres</span>
         </a>
@@ -267,6 +262,24 @@
 
     {{-- CONTENU PRINCIPAL --}}
     <main class="flex-1 p-4 lg:p-6 max-w-[1280px] w-full mx-auto">
+
+        {{-- Bannière impersonnification (visible sur toutes les pages) --}}
+        @if(session('impersonnation_id'))
+        <div class="flex items-center justify-between bg-[#D97706] text-white text-sm px-4 py-2.5 rounded-xl mb-4 border border-[#b45309]">
+            <span class="flex items-center gap-2 font-medium">
+                <span class="material-symbols-outlined text-base">switch_account</span>
+                Mode accès — compte de <strong class="mx-1">{{ auth()->user()->name }}</strong>
+                <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full hidden sm:inline">{{ auth()->user()->email }}</span>
+            </span>
+            <form method="POST" action="{{ route('admin.stop_impersonner') }}">
+                @csrf
+                <button type="submit" class="flex items-center gap-1.5 text-xs font-bold bg-white text-[#D97706] hover:bg-white/90 px-3 py-1.5 rounded-lg transition-colors shadow">
+                    <span class="material-symbols-outlined text-sm">arrow_back</span> Retour à mon compte
+                </button>
+            </form>
+        </div>
+        @endif
+
         {{-- Flash messages --}}
         @if(session('success'))
         <div class="alert-banner alert-green mb-4" x-data x-init="setTimeout(() => $el.remove(), 4000)">

@@ -49,33 +49,33 @@
             <span>Tableau de bord</span>
         </a>
 
-        <a href="#"
+        <a href="{{ route('revenus.index') }}"
            class="sidebar-item {{ request()->routeIs('revenus.*') ? 'sidebar-item-active' : '' }}">
             <span class="material-symbols-outlined text-xl">payments</span>
             <span>Revenus</span>
         </a>
 
-        <a href="#"
+        <a href="{{ route('depenses.index') }}"
            class="sidebar-item {{ request()->routeIs('depenses.*') ? 'sidebar-item-active' : '' }}">
             <span class="material-symbols-outlined text-xl">receipt_long</span>
             <span>Dépenses</span>
         </a>
 
-        <a href="#"
-           class="sidebar-item {{ request()->routeIs('charges.*') ? 'sidebar-item-active' : '' }}">
-            <span class="material-symbols-outlined text-xl">category</span>
-            <span>Charges fixes</span>
-        </a>
-
-        <a href="#"
+        <a href="{{ route('epargne.index') }}"
            class="sidebar-item {{ request()->routeIs('epargne.*') ? 'sidebar-item-active' : '' }}">
             <span class="material-symbols-outlined text-xl">savings</span>
             <span>Épargne</span>
         </a>
 
+        <a href="{{ route('alertes.index') }}"
+           class="sidebar-item {{ request()->routeIs('alertes.*') ? 'sidebar-item-active' : '' }}">
+            <span class="material-symbols-outlined text-xl">notifications</span>
+            <span>Alertes</span>
+        </a>
+
         <p class="text-[9px] font-bold uppercase tracking-widest text-white/30 px-3 mt-4 mb-2">Analyse</p>
 
-        <a href="#"
+        <a href="{{ route('rapports.index') }}"
            class="sidebar-item {{ request()->routeIs('rapports.*') ? 'sidebar-item-active' : '' }}">
             <span class="material-symbols-outlined text-xl">bar_chart</span>
             <span>Rapports</span>
@@ -83,7 +83,7 @@
 
         @if(auth()->user()?->role === 'super_admin' || auth()->user()?->role === 'admin')
         <p class="text-[9px] font-bold uppercase tracking-widest text-white/30 px-3 mt-4 mb-2">Administration</p>
-        <a href="#"
+        <a href="{{ route('admin.index') }}"
            class="sidebar-item {{ request()->routeIs('admin.*') ? 'sidebar-item-active' : '' }}">
             <span class="material-symbols-outlined text-xl">admin_panel_settings</span>
             <span>Administration</span>
@@ -93,7 +93,8 @@
 
     {{-- Bottom : actions --}}
     <div class="px-3 py-4 border-t border-white/10 space-y-1">
-        <a href="#" class="sidebar-item">
+        <a href="{{ route('profil.index') }}"
+           class="sidebar-item {{ request()->routeIs('profil.*') ? 'sidebar-item-active' : '' }}">
             <span class="material-symbols-outlined text-xl">settings</span>
             <span>Paramètres</span>
         </a>
@@ -130,14 +131,31 @@
 
             {{-- Sélecteur mois/année --}}
             @isset($monthSelector)
-            <div class="hidden sm:flex items-center gap-1 bg-[#F8FAFC] border border-[#E5E7EB] rounded-lg px-3 py-1.5">
-                <button class="text-[#002452] hover:text-[#10B981] transition-colors">
+            @php
+                $selMois  = (int) request('mois',  now()->month);
+                $selAnnee = (int) request('annee', now()->year);
+                $selDate  = \Carbon\Carbon::createFromDate($selAnnee, $selMois, 1);
+                $prevDate = $selDate->copy()->subMonth();
+                $nextDate = $selDate->copy()->addMonth();
+                $isCurrentMonth = $selMois == now()->month && $selAnnee == now()->year;
+                $baseRoute = request()->route()->getName();
+                $prevUrl = route($baseRoute, ['mois' => $prevDate->month, 'annee' => $prevDate->year]);
+                $nextUrl = $isCurrentMonth ? null : route($baseRoute, ['mois' => $nextDate->month, 'annee' => $nextDate->year]);
+            @endphp
+            <div class="hidden sm:flex items-center gap-1 bg-[#F8FAFC] border border-[#E5E7EB] rounded-lg px-2 py-1.5">
+                <a href="{{ $prevUrl }}" class="p-0.5 text-[#002452] hover:text-[#006c49] transition-colors rounded">
                     <span class="material-symbols-outlined text-base">chevron_left</span>
-                </button>
-                <span class="text-sm font-semibold text-[#1F2937] mx-1">{{ now()->translatedFormat('F Y') }}</span>
-                <button class="text-[#002452] hover:text-[#10B981] transition-colors">
+                </a>
+                <span class="text-sm font-semibold text-[#1F2937] mx-2 min-w-[90px] text-center">{{ $selDate->translatedFormat('M Y') }}</span>
+                @if($nextUrl)
+                <a href="{{ $nextUrl }}" class="p-0.5 text-[#002452] hover:text-[#006c49] transition-colors rounded">
                     <span class="material-symbols-outlined text-base">chevron_right</span>
-                </button>
+                </a>
+                @else
+                <span class="p-0.5 text-[#D1D5DB] cursor-not-allowed">
+                    <span class="material-symbols-outlined text-base">chevron_right</span>
+                </span>
+                @endif
             </div>
             @endisset
 
@@ -170,6 +188,24 @@
 
     {{-- CONTENU PRINCIPAL --}}
     <main class="flex-1 p-4 lg:p-6 max-w-[1280px] w-full mx-auto">
+
+        {{-- Bannière impersonnification globale --}}
+        @if(session('impersonnation_id'))
+        <div class="flex items-center justify-between bg-[#D97706] text-white text-sm px-4 py-2.5 rounded-xl mb-4 border border-[#b45309]">
+            <span class="flex items-center gap-2 font-medium">
+                <span class="material-symbols-outlined text-base">switch_account</span>
+                Mode accès — compte de <strong>{{ auth()->user()->name }}</strong>
+                <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">{{ auth()->user()->email }}</span>
+            </span>
+            <form method="POST" action="{{ route('admin.stop_impersonner') }}">
+                @csrf
+                <button type="submit" class="flex items-center gap-1.5 text-xs font-bold bg-white text-[#D97706] hover:bg-white/90 px-3 py-1.5 rounded-lg transition-colors shadow">
+                    <span class="material-symbols-outlined text-sm">arrow_back</span> Retour à mon compte
+                </button>
+            </form>
+        </div>
+        @endif
+
         {{-- Flash messages --}}
         @if(session('success'))
         <div class="alert-banner alert-green mb-4" x-data x-init="setTimeout(() => $el.remove(), 4000)">
@@ -193,16 +229,16 @@
             <span class="material-symbols-outlined text-2xl" style="{{ request()->routeIs('dashboard') ? 'font-variation-settings:\'FILL\' 1;' : '' }}">dashboard</span>
             <span class="text-[9px] font-medium">Accueil</span>
         </a>
-        <a href="#" class="flex flex-col items-center gap-0.5 px-3 py-1 {{ request()->routeIs('depenses.*') ? 'text-[#002452]' : 'text-[#6B7280]' }}">
-            <span class="material-symbols-outlined text-2xl">receipt_long</span>
+        <a href="{{ route('depenses.index') }}" class="flex flex-col items-center gap-0.5 px-3 py-1 {{ request()->routeIs('depenses.*') ? 'text-[#002452]' : 'text-[#6B7280]' }}">
+            <span class="material-symbols-outlined text-2xl" style="{{ request()->routeIs('depenses.*') ? 'font-variation-settings:\'FILL\' 1;' : '' }}">receipt_long</span>
             <span class="text-[9px] font-medium">Dépenses</span>
         </a>
-        <a href="#" class="flex flex-col items-center gap-0.5 px-3 py-1 {{ request()->routeIs('epargne.*') ? 'text-[#002452]' : 'text-[#6B7280]' }}">
-            <span class="material-symbols-outlined text-2xl">savings</span>
+        <a href="{{ route('epargne.index') }}" class="flex flex-col items-center gap-0.5 px-3 py-1 {{ request()->routeIs('epargne.*') ? 'text-[#002452]' : 'text-[#6B7280]' }}">
+            <span class="material-symbols-outlined text-2xl" style="{{ request()->routeIs('epargne.*') ? 'font-variation-settings:\'FILL\' 1;' : '' }}">savings</span>
             <span class="text-[9px] font-medium">Épargne</span>
         </a>
-        <a href="#" class="flex flex-col items-center gap-0.5 px-3 py-1 {{ request()->routeIs('rapports.*') ? 'text-[#002452]' : 'text-[#6B7280]' }}">
-            <span class="material-symbols-outlined text-2xl">bar_chart</span>
+        <a href="{{ route('rapports.index') }}" class="flex flex-col items-center gap-0.5 px-3 py-1 {{ request()->routeIs('rapports.*') ? 'text-[#002452]' : 'text-[#6B7280]' }}">
+            <span class="material-symbols-outlined text-2xl" style="{{ request()->routeIs('rapports.*') ? 'font-variation-settings:\'FILL\' 1;' : '' }}">bar_chart</span>
             <span class="text-[9px] font-medium">Rapports</span>
         </a>
     </nav>

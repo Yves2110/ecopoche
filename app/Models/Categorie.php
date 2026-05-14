@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Categorie extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'user_id', 'nom', 'icone', 'couleur',
         'type', 'plafond_mensuel', 'is_default', 'is_active', 'ordre',

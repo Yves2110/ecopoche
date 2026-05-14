@@ -2,12 +2,15 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\RevenusController;
 use App\Http\Controllers\DepensesController;
 use App\Http\Controllers\EpargneController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AlertesController;
+use App\Http\Controllers\RapportsController;
+use App\Http\Controllers\ProfilController;
 
 // Redirection racine
 Route::get('/', function () {
@@ -17,7 +20,13 @@ Route::get('/', function () {
 // ---- Routes publiques (guests) ----
 Route::middleware('guest')->group(function () {
     Route::get('/login',  [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'login'])->name('login.post');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login')->name('login.post');
+
+    // Mot de passe oublié
+    Route::get('/forgot-password',  [ForgotPasswordController::class, 'showForgotForm'])->name('password.request');
+    Route::post('/forgot-password', [ForgotPasswordController::class, 'sendResetLink'])->middleware('throttle:6,1')->name('password.email');
+    Route::get('/reset-password/{token}', [ForgotPasswordController::class, 'showResetForm'])->name('password.reset.form');
+    Route::post('/reset-password', [ForgotPasswordController::class, 'resetPassword'])->name('password.update');
 });
 
 // ---- Routes protégées ----
@@ -55,14 +64,30 @@ Route::middleware('auth')->group(function () {
     });
 
     // ---- Administration ----
-    Route::prefix('admin')->name('admin.')->group(function () {
+    Route::prefix('admin')->name('admin.')->middleware('throttle:admin')->group(function () {
         Route::get('/',                          [AdminController::class, 'index'])->name('index');
         Route::post('/comptes',                  [AdminController::class, 'creerCompte'])->name('comptes.store');
         Route::post('/comptes/{user}/toggle',    [AdminController::class, 'toggleActif'])->name('comptes.toggle');
         Route::post('/comptes/{user}/impersonner', [AdminController::class, 'impersonner'])->name('comptes.impersonner');
         Route::post('/stop-impersonner',         [AdminController::class, 'stopImpersonner'])->name('stop_impersonner');
-        Route::put('/comptes/{user}',            [AdminController::class, 'editCompte'])->name('comptes.update');
-        Route::get('/comptes/{user}/logs',       [AdminController::class, 'logs'])->name('comptes.logs');
+        Route::put('/comptes/{user}',                  [AdminController::class, 'editCompte'])->name('comptes.update');
+        Route::post('/comptes/{user}/reset-password',  [AdminController::class, 'resetPassword'])->name('comptes.reset_password');
+        Route::get('/comptes/{user}/logs',             [AdminController::class, 'logs'])->name('comptes.logs');
+    });
+
+    // ---- Profil / Paramètres ----
+    Route::prefix('profil')->name('profil.')->middleware('throttle:profil')->group(function () {
+        Route::get('/',              [ProfilController::class, 'index'])->name('index');
+        Route::put('/infos',         [ProfilController::class, 'updateInfos'])->name('update.infos');
+        Route::put('/password',      [ProfilController::class, 'updateMotDePasse'])->name('update.password');
+        Route::put('/preferences',   [ProfilController::class, 'updatePreferences'])->name('update.preferences');
+    });
+
+    // ---- Rapports ----
+    Route::prefix('rapports')->name('rapports.')->group(function () {
+        Route::get('/',              [RapportsController::class, 'index'])->name('index');
+        Route::get('/export/csv',    [RapportsController::class, 'exportCsv'])->name('export.csv');
+        Route::get('/export/pdf',    [RapportsController::class, 'exportPdf'])->name('export.pdf');
     });
 
     // ---- Revenus ----

@@ -15,7 +15,9 @@ class User extends Authenticatable
 
     protected $fillable = [
         'name', 'email', 'password',
-        'role', 'is_active', 'created_by', 'devise',
+        'role', 'is_active', 'created_by', 'devise', 'quota_taux', 'notifs_email',
+        'seuil_attention', 'seuil_critique', 'seuil_plafond_cat',
+        'objectif_epargne_pct', 'jour_bilan_email', 'mode_discret',
     ];
 
     protected $hidden = [
@@ -29,6 +31,14 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password'          => 'hashed',
             'is_active'         => 'boolean',
+            'quota_taux'           => 'integer',
+            'notifs_email'         => 'boolean',
+            'seuil_attention'      => 'integer',
+            'seuil_critique'       => 'integer',
+            'seuil_plafond_cat'    => 'integer',
+            'objectif_epargne_pct' => 'integer',
+            'jour_bilan_email'     => 'integer',
+            'mode_discret'         => 'boolean',
         ];
     }
 

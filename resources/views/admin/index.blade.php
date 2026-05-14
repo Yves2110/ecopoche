@@ -18,8 +18,23 @@
 
 {{-- Flash --}}
 @if(session('success'))
-<div class="flex items-center gap-2 bg-[#d1fae5] text-[#065f46] text-sm px-4 py-3 rounded-xl mb-4 border border-[#6ee7b7]">
-    <span class="material-symbols-outlined text-base">check_circle</span>{{ session('success') }}
+<div class="flex items-start gap-2 bg-[#d1fae5] text-[#065f46] text-sm px-4 py-3 rounded-xl mb-4 border border-[#6ee7b7]">
+    <span class="material-symbols-outlined text-base flex-shrink-0 mt-0.5">check_circle</span>
+    <div>
+        @php $msg = session('success'); @endphp
+        {{-- Afficher le mot de passe réinitialisé en évidence s'il est présent --}}
+        @if(str_contains($msg, 'réinitialisé :'))
+            @php [$texte, $mdp] = explode(' : ', $msg, 2); @endphp
+            <p class="font-semibold">{{ $texte }}</p>
+            <div class="mt-1 flex items-center gap-2">
+                <span class="text-xs text-[#065f46]">Nouveau mot de passe :</span>
+                <code class="bg-[#002452] text-[#6ffbbe] font-mono font-bold px-3 py-1 rounded-lg text-sm tracking-widest">{{ $mdp }}</code>
+                <span class="text-[10px] text-[#065f46] italic">(Notez-le ou envoyez-le à l'utilisateur)</span>
+            </div>
+        @else
+            {{ $msg }}
+        @endif
+    </div>
 </div>
 @endif
 @if(session('error'))
@@ -218,6 +233,16 @@
                         <span class="material-symbols-outlined text-base">history</span>
                     </a>
 
+                    {{-- Réinitialiser mot de passe --}}
+                    <form method="POST" action="{{ route('admin.comptes.reset_password', $u) }}"
+                          onsubmit="return confirm('Réinitialiser le mot de passe de {{ addslashes($u->name) }} ? Un nouveau sera généré.')">
+                        @csrf
+                        <button type="submit" title="Réinitialiser le mot de passe"
+                                class="p-1.5 rounded-lg text-[#6B7280] hover:text-[#4f46e5] hover:bg-[#EEF2FF] transition-colors">
+                            <span class="material-symbols-outlined text-base">lock_reset</span>
+                        </button>
+                    </form>
+
                     {{-- Impersonnifier --}}
                     @if($u->is_active)
                     <form method="POST" action="{{ route('admin.comptes.impersonner', $u) }}">
@@ -248,7 +273,7 @@
             </div> {{-- fin flex ligne --}}
 
             {{-- Formulaire d'édition inline (slide-down) --}}
-            <div x-show="editId === {{ $u->id }}" x-transition class="mt-2 border-t border-[#E5E7EB] pt-2">
+            <div x-show="editId === {{ $u->id }}" x-transition class="mt-2 border-t border-[#E5E7EB] pt-3">
                 <form method="POST" action="{{ route('admin.comptes.update', $u) }}">
                     @csrf @method('PUT')
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
@@ -270,6 +295,28 @@
                                 <option value="admin">Administrateur</option>
                                 <option value="super_admin">Super Admin</option>
                             </select>
+                        </div>
+                    </div>
+                    {{-- Définir un nouveau mot de passe manuellement (optionnel) --}}
+                    <div class="mb-3 p-3 bg-[#FFFBEB] border border-[#FDE68A] rounded-xl">
+                        <p class="text-[10px] font-bold text-[#D97706] uppercase tracking-wide mb-2 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">lock_reset</span>
+                            Définir un nouveau mot de passe (optionnel)
+                        </p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-[#6B7280] mb-1 uppercase tracking-wide">Nouveau mot de passe</label>
+                                <input type="password" name="new_password" minlength="8"
+                                       placeholder="Laisser vide = pas de changement"
+                                       class="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-[#D97706] focus:ring-2 focus:ring-[#D97706]/10 bg-white" />
+                                <p class="text-[10px] text-[#9CA3AF] mt-0.5">Min. 8 caractères</p>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-[#6B7280] mb-1 uppercase tracking-wide">Confirmer</label>
+                                <input type="password" name="new_password_confirmation"
+                                       placeholder="Répéter le mot de passe"
+                                       class="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-[#D97706] focus:ring-2 focus:ring-[#D97706]/10 bg-white" />
+                            </div>
                         </div>
                     </div>
                     <div class="flex items-center gap-2 justify-end">

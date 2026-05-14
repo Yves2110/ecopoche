@@ -89,6 +89,9 @@
                     <input type="checkbox" name="remember" id="remember" class="w-4 h-4 rounded border-[#E5E7EB] text-[#002452] focus:ring-[#002452]/20" />
                     <span class="text-sm text-[#6B7280]">Se souvenir de moi</span>
                 </label>
+                <a href="{{ route('password.request') }}" class="text-sm text-[#002452] font-semibold hover:underline">
+                    Mot de passe oublié ?
+                </a>
             </div>
 
             {{-- Submit --}}

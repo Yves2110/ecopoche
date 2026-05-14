@@ -4,15 +4,26 @@ namespace App\Http\Controllers;
 
 use App\Models\Budget;
 use App\Models\Depense;
+use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $mois  = now()->month;
-        $annee = now()->year;
+        $mois  = (int) $request->get('mois',  now()->month);
+        $annee = (int) $request->get('annee', now()->year);
+
+        // Bornes : pas de futur au-delà du mois courant
+        $today = now();
+        if ($annee > $today->year || ($annee == $today->year && $mois > $today->month)) {
+            $mois  = $today->month;
+            $annee = $today->year;
+        }
+
+        /** @var User $user */
         $user  = Auth::user();
 
         $budget = Budget::firstOrCreate(

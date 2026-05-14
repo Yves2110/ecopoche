@@ -36,7 +36,8 @@ class Revenu extends Model
     {
         static::creating(function (Revenu $revenu) {
             if (in_array($revenu->type, ['bonus', 'extra'])) {
-                $taux = 0.30;
+                $tauxPct = (int) (auth()->user()?->quota_taux ?? 30);
+                $taux = $tauxPct / 100;
                 $revenu->montant_quota  = round($revenu->montant_brut * $taux, 2);
                 $revenu->montant_dispo  = round($revenu->montant_brut * (1 - $taux), 2);
                 $revenu->quota_applique = true;

@@ -29,8 +29,18 @@ class AuthController extends Controller
         if (Auth::attempt($credentials, $remember)) {
             $request->session()->regenerate();
 
-            // Analyse budget au login (remplace le cron sur hébergement sans accès cron)
-            $user   = Auth::user();
+            $user = Auth::user();
+
+            // Compte suspendu : déconnecter immédiatement
+            if (!$user->is_active) {
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+                throw ValidationException::withMessages([
+                    'email' => 'Identifiants incorrects ou compte inactif.',
+                ]);
+            }
+
             $budget = Budget::firstOrCreate(
                 ['user_id' => $user->id, 'mois' => now()->month, 'annee' => now()->year],
                 ['salaire_fixe' => 0, 'solde_charges' => 0, 'epargne_objectif' => 0]
@@ -40,15 +50,16 @@ class AuthController extends Controller
             ActivityLog::create([
                 'user_id'     => $user->id,
                 'action'      => 'connexion',
-                'description' => 'Connexion au compte.',
+                'description' => 'Connexion réussie.',
                 'ip_address'  => $request->ip(),
             ]);
 
             return redirect()->intended(route('dashboard'));
         }
 
+        // Message générique : ne pas révéler si l'email existe ou non
         throw ValidationException::withMessages([
-            'email' => __('Les identifiants fournis sont incorrects.'),
+            'email' => 'Identifiants incorrects ou compte inactif.',
         ]);
     }
 

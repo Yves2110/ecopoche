@@ -14,6 +14,12 @@ use Illuminate\Support\Str;
 
 class AdminController extends Controller
 {
+    private function authUser(): User
+    {
+        /** @var User */
+        return Auth::user();
+    }
+
     private function logAction(User $cible, string $action, string $description, array $meta = []): void
     {
         ActivityLog::create([
@@ -27,7 +33,7 @@ class AdminController extends Controller
 
     public function index(Request $request)
     {
-        if (!Auth::user()->isSuperAdmin()) abort(403);
+        if (!$this->authUser()->isSuperAdmin()) abort(403);
 
         $search = $request->get('q');
         $statut = $request->get('statut', 'tous');
@@ -58,7 +64,7 @@ class AdminController extends Controller
 
     public function creerCompte(Request $request)
     {
-        if (!Auth::user()->isSuperAdmin()) abort(403);
+        if (!$this->authUser()->isSuperAdmin()) abort(403);
 
         $data = $request->validate([
             'name'  => ['required', 'string', 'max:100'],
@@ -88,7 +94,7 @@ class AdminController extends Controller
 
     public function toggleActif(User $user)
     {
-        if (!Auth::user()->isSuperAdmin()) abort(403);
+        if (!$this->authUser()->isSuperAdmin()) abort(403);
         if ($user->id === Auth::id()) return back()->with('error', 'Vous ne pouvez pas désactiver votre propre compte.');
 
         $user->update(['is_active' => !$user->is_active]);
@@ -102,7 +108,7 @@ class AdminController extends Controller
 
     public function impersonner(User $user)
     {
-        if (!Auth::user()->isSuperAdmin()) abort(403);
+        if (!$this->authUser()->isSuperAdmin()) abort(403);
         if ($user->id === Auth::id()) return back();
 
         $this->logAction($user, 'impersonnification', 'Accès impersonné par le super admin.');
@@ -129,34 +135,62 @@ class AdminController extends Controller
 
     public function editCompte(User $user)
     {
-        if (!Auth::user()->isSuperAdmin()) abort(403);
+        if (!$this->authUser()->isSuperAdmin()) abort(403);
 
         $data = request()->validate([
-            'name'      => ['required', 'string', 'max:100'],
-            'email'     => ['required', 'email', 'unique:users,email,' . $user->id],
-            'role'      => ['required', 'in:super_admin,admin,user'],
-            'is_active' => ['boolean'],
+            'name'                     => ['required', 'string', 'max:100'],
+            'email'                    => ['required', 'email', 'unique:users,email,' . $user->id],
+            'role'                     => ['required', 'in:super_admin,admin,user'],
+            'is_active'                => ['boolean'],
+            'new_password'             => ['nullable', 'string', 'min:8', 'confirmed'],
+            'new_password_confirmation' => ['nullable', 'string'],
         ]);
 
         $ancienRole = $user->role;
-        $user->update([
+        $updates = [
             'name'      => $data['name'],
             'email'     => $data['email'],
             'role'      => $data['role'],
             'is_active' => $data['is_active'] ?? $user->is_active,
-        ]);
+        ];
 
-        $this->logAction($user, 'compte_modifie',
-            "Compte modifié : rôle {$ancienRole} → {$data['role']}.",
-            ['champs' => array_keys($data)]
-        );
+        $mdpChange = false;
+        if (!empty($data['new_password'])) {
+            $updates['password'] = Hash::make($data['new_password']);
+            $mdpChange = true;
+        }
 
-        return back()->with('success', "Compte de {$user->name} mis à jour.");
+        $user->update($updates);
+
+        $desc = "Compte modifié : rôle {$ancienRole} → {$data['role']}.";
+        if ($mdpChange) $desc .= ' Mot de passe redéfini manuellement.';
+        $this->logAction($user, 'compte_modifie', $desc, ['champs' => array_keys($data)]);
+
+        $msg = "Compte de {$user->name} mis à jour.";
+        if ($mdpChange) $msg .= ' Mot de passe modifié.';
+
+        return back()->with('success', $msg);
+    }
+
+    public function resetPassword(User $user)
+    {
+        if (!$this->authUser()->isSuperAdmin()) abort(403);
+
+        $nouveauMdp = Str::random(10);
+        $user->update(['password' => Hash::make($nouveauMdp)]);
+
+        try {
+            Mail::to($user->email)->send(new CompteProvisoire($user, $nouveauMdp));
+        } catch (\Throwable) {}
+
+        $this->logAction($user, 'mdp_reinitialise', 'Mot de passe réinitialisé par l\'administrateur.');
+
+        return back()->with('success', "Mot de passe de {$user->name} réinitialisé : {$nouveauMdp}");
     }
 
     public function logs(User $user)
     {
-        if (!Auth::user()->isSuperAdmin()) abort(403);
+        if (!$this->authUser()->isSuperAdmin()) abort(403);
 
         $logs = ActivityLog::where('user_id', $user->id)
             ->orderByDesc('created_at')

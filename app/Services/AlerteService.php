@@ -27,6 +27,11 @@ class AlerteService
 
         $ratio = $totalDepenses / $budgetTotal;
 
+        // Seuils configurables par l'utilisateur (défauts : 70% / 90%)
+        $seuilAttention = ($user->seuil_attention ?? 70) / 100;
+        $seuilCritique  = ($user->seuil_critique  ?? 90) / 100;
+        $seuilPlafond   = ($user->seuil_plafond_cat ?? 80) / 100;
+
         // ── Santé budgétaire globale ──────────────────────────────────────────
         $ratioFmt  = number_format($ratio * 100, 0);
         $soldeFmt  = self::fmt(abs($solde));
@@ -47,7 +52,7 @@ class AlerteService
                     Mail::to($user->email)->send(new AlerteSoldeRouge($user, $budget, $solde, $ratio, $budgetTotal));
                 } catch (\Throwable) {}
             }
-        } elseif ($ratio >= 0.90) {
+        } elseif ($ratio >= $seuilCritique) {
             $estNouveau = self::creer($user, 'attention', 'warning',
                 "Seuil critique : {$ratioFmt}% du budget consommé. Il ne reste que {$soldeFmt} FCFA sur {$budgetFmt} FCFA. Évitez toute dépense non essentielle.",
                 ['mois' => $budget->mois, 'annee' => $budget->annee, 'ratio' => $ratio * 100, 'solde' => $solde],
@@ -58,13 +63,13 @@ class AlerteService
                     Mail::to($user->email)->send(new AlerteSoldeRouge($user, $budget, $solde, $ratio, $budgetTotal));
                 } catch (\Throwable) {}
             }
-        } elseif ($ratio >= 0.70) {
+        } elseif ($ratio >= $seuilAttention) {
             self::creer($user, 'attention', 'warning',
                 "{$ratioFmt}% du budget utilisé. Restant : {$soldeFmt} FCFA. Surveillez vos dépenses jusqu'à la fin du mois.",
                 ['mois' => $budget->mois, 'annee' => $budget->annee, 'ratio' => $ratio * 100, 'solde' => $solde],
                 $budget
             );
-        } elseif ($ratio < 0.70 && $totalDepenses > 0) {
+        } elseif ($ratio < $seuilAttention && $totalDepenses > 0) {
             self::creer($user, 'budget_sain', 'info',
                 "Budget sain ce mois — {$ratioFmt}% utilisé. Solde restant : {$soldeFmt} FCFA.",
                 ['mois' => $budget->mois, 'annee' => $budget->annee],
@@ -80,26 +85,26 @@ class AlerteService
 
         foreach ($depensesParCat as $catId => $items) {
             $cat = $items->first()->categorie;
-            if (!$cat || !$cat->plafond || $cat->plafond <= 0) continue;
+            if (!$cat || !$cat->plafond_mensuel || $cat->plafond_mensuel <= 0) continue;
 
             $total   = $items->sum('montant');
-            $pct     = $total / $cat->plafond;
+            $pct     = $total / $cat->plafond_mensuel;
             $pctFmt  = number_format($pct * 100, 0);
-            $restant = max(0, $cat->plafond - $total);
+            $restant = max(0, $cat->plafond_mensuel - $total);
 
             if ($pct >= 1.0) {
-                $depasse = $total - $cat->plafond;
+                $depasse = $total - $cat->plafond_mensuel;
                 self::creer($user, 'plafond_depasse', 'danger',
-                    "Plafond {$cat->nom} dépassé de " . self::fmt($depasse) . " FCFA ({$pctFmt}% — " . self::fmt($total) . ' / ' . self::fmt($cat->plafond) . ' FCFA). Bloquez toute nouvelle dépense dans cette catégorie.',
+                    "Plafond {$cat->nom} dépassé de " . self::fmt($depasse) . " FCFA ({$pctFmt}% — " . self::fmt($total) . ' / ' . self::fmt($cat->plafond_mensuel) . ' FCFA). Bloquez toute nouvelle dépense dans cette catégorie.',
                     ['categorie_id' => $catId, 'categorie' => $cat->nom, 'total' => $total,
-                     'plafond' => $cat->plafond, 'depasse' => $depasse, 'pct' => $pctFmt],
+                     'plafond' => $cat->plafond_mensuel, 'depasse' => $depasse, 'pct' => $pctFmt],
                     $budget
                 );
-            } elseif ($pct >= 0.80) {
+            } elseif ($pct >= $seuilPlafond) {
                 self::creer($user, 'plafond_80', 'warning',
-                    "{$cat->nom} à {$pctFmt}% du plafond. Reste : " . self::fmt($restant) . ' FCFA sur ' . self::fmt($cat->plafond) . ' FCFA. Soyez vigilant.',
+                    "{$cat->nom} à {$pctFmt}% du plafond. Reste : " . self::fmt($restant) . ' FCFA sur ' . self::fmt($cat->plafond_mensuel) . ' FCFA. Soyez vigilant.',
                     ['categorie_id' => $catId, 'categorie' => $cat->nom, 'pct' => $pctFmt,
-                     'restant' => $restant, 'total' => $total, 'plafond' => $cat->plafond],
+                     'restant' => $restant, 'total' => $total, 'plafond' => $cat->plafond_mensuel],
                     $budget
                 );
             }
@@ -154,12 +159,14 @@ class AlerteService
      */
     public static function quotaApplique(User $user, float $brut, float $depensable, float $reserve): void
     {
+        $taux = $user->quota_taux ?? 30;
+        $tauxReserve = 100 - $taux;
         Alerte::create([
             'user_id' => $user->id,
             'type'    => 'quota_applique',
             'gravite' => 'info',
-            'message' => 'Revenu variable enregistré. Dépensable : ' . self::fmt($depensable) . ' FCFA (30%). Réserve bloquée : ' . self::fmt($reserve) . ' FCFA (70%).',
-            'meta'    => ['brut' => $brut, 'depensable' => $depensable, 'reserve' => $reserve],
+            'message' => "Revenu variable enregistré. Dépensable : " . self::fmt($depensable) . " FCFA ({$taux}%). Réserve bloquée : " . self::fmt($reserve) . " FCFA ({$tauxReserve}%).",
+            'meta'    => ['brut' => $brut, 'depensable' => $depensable, 'reserve' => $reserve, 'taux' => $taux],
         ]);
     }
 
