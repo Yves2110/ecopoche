@@ -100,90 +100,101 @@
         </tr>
     </table>
 
-    {{-- Graphique Comparatif en SVG --}}
+    {{-- ===== LIGNE 1 : Graphique comparatif (gauche) + Top catégories (droite) ===== --}}
     @php
         $maxVal = max(
             collect($historique)->max('revenu'),
             collect($historique)->max('depenses'),
             1
         );
-        $chartW  = 510;
-        $chartH  = 140;
-        $padL    = 38;
-        $padB    = 22;
-        $padR    = 8;
-        $padT    = 8;
+        $chartW  = 380;
+        $chartH  = 150;
+        $padL    = 38; $padB = 22; $padR = 8; $padT = 8;
         $innerW  = $chartW - $padL - $padR;
         $innerH  = $chartH - $padB - $padT;
         $n       = count($historique);
         $groupW  = $innerW / max($n, 1);
-        $barW    = max(4, min(12, $groupW / 4));
+        $barW    = max(4, min(14, $groupW / 4));
         $gap     = $barW * 0.5;
-
-        $svgY = fn($val, $max, $innerH, $padT) =>
-            $max == 0 ? $padT + $innerH : $padT + $innerH - ($val / $max) * $innerH;
-        $svgH = fn($val, $max, $innerH) =>
-            $max == 0 ? 0 : max(1, ($val / $max) * $innerH);
+        $svgYfn  = fn($val, $max, $iH, $pT) => $max == 0 ? $pT + $iH : $pT + $iH - ($val / $max) * $iH;
+        $svgHfn  = fn($val, $max, $iH)      => $max == 0 ? 0 : max(1, ($val / $max) * $iH);
     @endphp
 
-    <div class="chart-wrap">
-        <div class="chart-title">Comparatif mensuel — Revenus / Dépenses / Épargne</div>
-        <div class="chart-legend">
-            <span>&#9632; <span style="color:#002452">Revenus</span></span>
-            <span>&#9632; <span style="color:#EF4444">Dépenses</span></span>
-            <span>&#9632; <span style="color:#006c49">Épargne</span></span>
+    <div style="display:table;width:100%;margin-bottom:14px;">
+
+        {{-- Colonne gauche : graphique comparatif --}}
+        <div style="display:table-cell;width:60%;vertical-align:top;padding-right:12px;">
+            <div class="chart-wrap">
+                <div class="chart-title">Comparatif {{ $periodeLabel }} — Revenus / Dépenses / Épargne</div>
+                <div class="chart-legend">
+                    <span>&#9632; <span style="color:#002452">Revenus</span></span>
+                    <span>&#9632; <span style="color:#EF4444">Dépenses</span></span>
+                    <span>&#9632; <span style="color:#006c49">Épargne</span></span>
+                </div>
+                <svg width="{{ $chartW }}" height="{{ $chartH }}" xmlns="http://www.w3.org/2000/svg">
+                    @for($gi = 0; $gi <= 4; $gi++)
+                    @php $gy = $padT + ($innerH / 4) * $gi; $gval = round($maxVal * (4 - $gi) / 4 / 1000); @endphp
+                    <line x1="{{ $padL }}" y1="{{ $gy }}" x2="{{ $chartW - $padR }}" y2="{{ $gy }}"
+                          stroke="#E5E7EB" stroke-width="0.5"/>
+                    <text x="{{ $padL - 3 }}" y="{{ $gy + 3 }}" font-size="7" fill="#9CA3AF" text-anchor="end">{{ $gval }}k</text>
+                    @endfor
+                    <line x1="{{ $padL }}" y1="{{ $padT + $innerH }}" x2="{{ $chartW - $padR }}" y2="{{ $padT + $innerH }}"
+                          stroke="#E5E7EB" stroke-width="1"/>
+                    @foreach($historique as $idx => $h)
+                    @php
+                        $cx = $padL + $groupW * $idx + $groupW / 2;
+                        $bx1 = $cx - $barW * 1.5 - $gap;
+                        $bx2 = $cx - $barW * 0.5;
+                        $bx3 = $cx + $barW * 0.5 + $gap;
+                        $hRev = $svgHfn($h['revenu'],   $maxVal, $innerH);
+                        $hDep = $svgHfn($h['depenses'], $maxVal, $innerH);
+                        $hEp  = $svgHfn($h['epargne'],  $maxVal, $innerH);
+                        $yRev = $svgYfn($h['revenu'],   $maxVal, $innerH, $padT);
+                        $yDep = $svgYfn($h['depenses'], $maxVal, $innerH, $padT);
+                        $yEp  = $svgYfn($h['epargne'],  $maxVal, $innerH, $padT);
+                        $lp   = explode(' ', $h['label']);
+                        $sl   = strtoupper(substr($lp[0] ?? '', 0, 3)) . ' ' . ($lp[1] ?? '');
+                    @endphp
+                    <rect x="{{ $bx1 }}" y="{{ $yRev }}" width="{{ $barW }}" height="{{ $hRev }}" fill="#002452" fill-opacity="0.3" rx="1"/>
+                    <rect x="{{ $bx2 }}" y="{{ $yDep }}" width="{{ $barW }}" height="{{ $hDep }}" fill="#EF4444" fill-opacity="0.85" rx="1"/>
+                    <rect x="{{ $bx3 }}" y="{{ $yEp  }}" width="{{ $barW }}" height="{{ $hEp  }}" fill="#006c49" fill-opacity="0.9" rx="1"/>
+                    <text x="{{ $cx }}" y="{{ $padT + $innerH + 15 }}" font-size="6.5" fill="#9CA3AF" text-anchor="middle">{{ $sl }}</text>
+                    @endforeach
+                </svg>
+            </div>
         </div>
-        <svg width="{{ $chartW }}" height="{{ $chartH }}" xmlns="http://www.w3.org/2000/svg">
-            {{-- Grille horizontale --}}
-            @for($gi = 0; $gi <= 4; $gi++)
-            @php $gy = $padT + ($innerH / 4) * $gi; $gval = round($maxVal * (4 - $gi) / 4 / 1000); @endphp
-            <line x1="{{ $padL }}" y1="{{ $gy }}" x2="{{ $chartW - $padR }}" y2="{{ $gy }}"
-                  stroke="#E5E7EB" stroke-width="0.5"/>
-            <text x="{{ $padL - 3 }}" y="{{ $gy + 3 }}" font-size="7" fill="#9CA3AF" text-anchor="end">{{ $gval }}k</text>
-            @endfor
 
-            {{-- Axe X --}}
-            <line x1="{{ $padL }}" y1="{{ $padT + $innerH }}" x2="{{ $chartW - $padR }}" y2="{{ $padT + $innerH }}"
-                  stroke="#E5E7EB" stroke-width="1"/>
-
-            {{-- Barres et labels --}}
-            @foreach($historique as $idx => $h)
-            @php
-                $cx  = $padL + $groupW * $idx + $groupW / 2;
-                $x1  = $cx - $barW * 1.5 - $gap;
-                $x2  = $cx - $barW * 0.5;
-                $x3  = $cx + $barW * 0.5 + $gap;
-
-                $hRev = $svgH($h['revenu'],   $maxVal, $innerH);
-                $hDep = $svgH($h['depenses'], $maxVal, $innerH);
-                $hEp  = $svgH($h['epargne'],  $maxVal, $innerH);
-
-                $yRev = $svgY($h['revenu'],   $maxVal, $innerH, $padT);
-                $yDep = $svgY($h['depenses'], $maxVal, $innerH, $padT);
-                $yEp  = $svgY($h['epargne'],  $maxVal, $innerH, $padT);
-
-                $labelParts = explode(' ', $h['label']);
-                $shortLabel = strtoupper(substr($labelParts[0] ?? '', 0, 3)) . ' ' . ($labelParts[1] ?? '');
-            @endphp
-            {{-- Barre revenus --}}
-            <rect x="{{ $x1 }}" y="{{ $yRev }}" width="{{ $barW }}" height="{{ $hRev }}"
-                  fill="#002452" fill-opacity="0.3" rx="1"/>
-            {{-- Barre dépenses --}}
-            <rect x="{{ $x2 }}" y="{{ $yDep }}" width="{{ $barW }}" height="{{ $hDep }}"
-                  fill="#EF4444" fill-opacity="0.85" rx="1"/>
-            {{-- Barre épargne --}}
-            <rect x="{{ $x3 }}" y="{{ $yEp }}" width="{{ $barW }}" height="{{ $hEp }}"
-                  fill="#006c49" fill-opacity="0.9" rx="1"/>
-            {{-- Label mois --}}
-            <text x="{{ $cx }}" y="{{ $padT + $innerH + 15 }}" font-size="6.5" fill="#9CA3AF" text-anchor="middle">{{ $shortLabel }}</text>
+        {{-- Colonne droite : Top catégories --}}
+        <div style="display:table-cell;width:40%;vertical-align:top;">
+            <p class="section-title">Top dépenses / catégorie</p>
+            @if($topCategories->isEmpty())
+                <p style="color:#9CA3AF;font-size:9px;font-style:italic;margin-top:8px;">Aucune dépense.</p>
+            @else
+            @foreach($topCategories as $i => $cat)
+            @php $pctCat = $topCategories->first()['total'] > 0 ? round($cat['total'] / $topCategories->first()['total'] * 100) : 0; @endphp
+            <div class="cat-row">
+                <div style="display:table;width:100%;margin-bottom:2px;">
+                    <span style="display:table-cell;font-size:9px;font-weight:600;">
+                        <span style="color:{{ $cat['couleur'] }}">●</span> {{ $cat['nom'] }}
+                    </span>
+                    <span style="display:table-cell;text-align:right;font-size:9px;color:#6B7280;">
+                        {{ number_format($cat['total'], 0, ',', ' ') }} &nbsp;<strong>{{ $pctCat }}%</strong>
+                    </span>
+                </div>
+                <div class="bar-track">
+                    <div class="bar-fill" style="width:{{ $pctCat }}%;background:{{ $cat['couleur'] }};"></div>
+                </div>
+            </div>
             @endforeach
-        </svg>
+            @endif
+        </div>
+
     </div>
 
-    <div class="two-col">
-        <div class="col60">
+    {{-- ===== LIGNE 2 : Tableau mensuel (gauche) + Évolution épargne (droite) ===== --}}
+    <div style="display:table;width:100%;">
 
-            {{-- Tableau mensuel détaillé --}}
+        <div style="display:table-cell;width:65%;vertical-align:top;padding-right:12px;">
             <p class="section-title">Détail par mois</p>
             <table>
                 <thead>
@@ -206,11 +217,6 @@
                             $taux >= 70        => ['l'=>'Attention','cls'=>'badge-yellow'],
                             default            => ['l'=>'Sain',     'cls'=>'badge-green'],
                         };
-                        $evoRev = null;
-                        $evoIdx = array_search($h, $historique);
-                        if ($evoIdx > 0 && $historique[$evoIdx-1]['revenu'] > 0) {
-                            $evoRev = round(($h['revenu'] - $historique[$evoIdx-1]['revenu']) / $historique[$evoIdx-1]['revenu'] * 100, 1);
-                        }
                     @endphp
                     <tr>
                         <td style="font-weight:600;">
@@ -244,91 +250,55 @@
                     </tr>
                 </tfoot>
             </table>
-
         </div>
-        <div class="col40">
 
-            {{-- Graphique épargne évolution (ligne SVG) --}}
+        {{-- Évolution épargne (courbe) --}}
+        <div style="display:table-cell;width:35%;vertical-align:top;">
             @php
-                $epargnes   = array_column($historique, 'epargne');
-                $maxEp      = max(max($epargnes), 1);
-                $svgW2      = 200; $svgH2 = 80;
-                $pL2=20; $pB2=16; $pR2=6; $pT2=6;
-                $iW2 = $svgW2-$pL2-$pR2; $iH2 = $svgH2-$pB2-$pT2;
-                $nEp = count($epargnes);
-                $points = [];
-                foreach ($epargnes as $ei => $ev) {
-                    $px = $pL2 + ($nEp > 1 ? $iW2 * $ei / ($nEp - 1) : $iW2/2);
-                    $py = $pT2 + $iH2 - ($maxEp > 0 ? ($ev / $maxEp) * $iH2 : 0);
-                    $points[] = "$px,$py";
+                $epargnes = array_column($historique, 'epargne');
+                $maxEp    = max(max($epargnes), 1);
+                $svgW2=210; $svgH2=90;
+                $pL2=22; $pB2=18; $pR2=6; $pT2=8;
+                $iW2=$svgW2-$pL2-$pR2; $iH2=$svgH2-$pB2-$pT2;
+                $nEp=count($epargnes);
+                $pts=[];
+                foreach($epargnes as $ei=>$ev){
+                    $px=$pL2+($nEp>1?$iW2*$ei/($nEp-1):$iW2/2);
+                    $py=$pT2+$iH2-($maxEp>0?($ev/$maxEp)*$iH2:0);
+                    $pts[]="$px,$py";
                 }
-                $polyline = implode(' ', $points);
+                $polyline=implode(' ',$pts);
             @endphp
             <p class="section-title">Évolution de l'épargne</p>
             <div class="chart-wrap" style="padding:10px 12px;">
                 <svg width="{{ $svgW2 }}" height="{{ $svgH2 }}" xmlns="http://www.w3.org/2000/svg">
                     @for($gi=0;$gi<=3;$gi++)
-                    @php $gy2=$pT2+($iH2/3)*$gi; @endphp
-                    <line x1="{{ $pL2 }}" y1="{{ $gy2 }}" x2="{{ $svgW2-$pR2 }}" y2="{{ $gy2 }}"
-                          stroke="#E5E7EB" stroke-width="0.5"/>
+                    @php $gy2=$pT2+($iH2/3)*$gi; $gv2=round($maxEp*(3-$gi)/3/1000,1); @endphp
+                    <line x1="{{ $pL2 }}" y1="{{ $gy2 }}" x2="{{ $svgW2-$pR2 }}" y2="{{ $gy2 }}" stroke="#E5E7EB" stroke-width="0.5"/>
+                    <text x="{{ $pL2-3 }}" y="{{ $gy2+3 }}" font-size="6" fill="#9CA3AF" text-anchor="end">{{ $gv2 }}k</text>
                     @endfor
-                    @if(count($points) >= 2)
-                    <polyline points="{{ $polyline }}" fill="none" stroke="#006c49" stroke-width="2" stroke-linejoin="round"/>
-                    {{-- Zone sous la ligne --}}
+                    @if(count($pts)>=2)
                     @php
-                        $areaPoints = $points;
-                        $lastX = explode(',', end($areaPoints))[0];
-                        $firstX = explode(',', $areaPoints[0])[0];
-                        $baseline = $pT2 + $iH2;
-                        $areaFill = $polyline . " $lastX,$baseline $firstX,$baseline";
+                        $lx=explode(',',$pts[count($pts)-1])[0];
+                        $fx=explode(',',$pts[0])[0];
+                        $bl=$pT2+$iH2;
+                        $area=$polyline." $lx,$bl $fx,$bl";
                     @endphp
-                    <polygon points="{{ $areaFill }}" fill="#006c49" fill-opacity="0.08"/>
-                    @foreach($epargnes as $ei => $ev)
-                    @php
-                        $dpx = $pL2 + ($nEp > 1 ? $iW2 * $ei / ($nEp - 1) : $iW2/2);
-                        $dpy = $pT2 + $iH2 - ($maxEp > 0 ? ($ev / $maxEp) * $iH2 : 0);
-                    @endphp
-                    @if($ev > 0)
-                    <circle cx="{{ $dpx }}" cy="{{ $dpy }}" r="2.5" fill="#006c49"/>
-                    @endif
+                    <polygon points="{{ $area }}" fill="#006c49" fill-opacity="0.08"/>
+                    <polyline points="{{ $polyline }}" fill="none" stroke="#006c49" stroke-width="1.5" stroke-linejoin="round"/>
+                    @foreach($epargnes as $ei=>$ev)
+                    @php $dpx=$pL2+($nEp>1?$iW2*$ei/($nEp-1):$iW2/2); $dpy=$pT2+$iH2-($maxEp>0?($ev/$maxEp)*$iH2:0); @endphp
+                    @if($ev>0)<circle cx="{{ $dpx }}" cy="{{ $dpy }}" r="2" fill="#006c49"/>@endif
                     @endforeach
                     @endif
-                    {{-- Labels X --}}
-                    @foreach($historique as $ei => $h)
-                    @php
-                        $lx2 = $pL2 + ($nEp > 1 ? $iW2 * $ei / ($nEp - 1) : $iW2/2);
-                        $lparts = explode(' ', $h['label']);
-                        $lshort = strtoupper(substr($lparts[0]??'',0,1));
-                    @endphp
-                    <text x="{{ $lx2 }}" y="{{ $svgH2 - 3 }}" font-size="6" fill="#9CA3AF" text-anchor="middle">{{ $lshort }}</text>
+                    @foreach($historique as $ei=>$h)
+                    @php $lx2=$pL2+($nEp>1?$iW2*$ei/($nEp-1):$iW2/2); $lp=explode(' ',$h['label']); @endphp
+                    <text x="{{ $lx2 }}" y="{{ $svgH2-3 }}" font-size="6" fill="#9CA3AF" text-anchor="middle">{{ strtoupper(substr($lp[0]??'',0,1)) }}</text>
                     @endforeach
                 </svg>
             </div>
-
-            {{-- Top catégories --}}
-            <p class="section-title">Top dépenses / catégorie</p>
-            @if($topCategories->isEmpty())
-                <p style="color:#9CA3AF;font-size:9px;font-style:italic;">Aucune dépense.</p>
-            @else
-            @foreach($topCategories as $i => $cat)
-            @php $pctCat = $topCategories->first()['total'] > 0 ? round($cat['total'] / $topCategories->first()['total'] * 100) : 0; @endphp
-            <div class="cat-row">
-                <div style="display:table;width:100%;margin-bottom:2px;">
-                    <span style="display:table-cell;font-size:9px;font-weight:600;">
-                        <span style="color:{{ $cat['couleur'] }}">●</span> {{ $cat['nom'] }}
-                    </span>
-                    <span style="display:table-cell;text-align:right;font-size:9px;color:#6B7280;">
-                        {{ number_format($cat['total'], 0, ',', ' ') }} &nbsp;<strong>{{ $pctCat }}%</strong>
-                    </span>
-                </div>
-                <div class="bar-track">
-                    <div class="bar-fill" style="width:{{ $pctCat }}%;background:{{ $cat['couleur'] }};"></div>
-                </div>
-            </div>
-            @endforeach
-            @endif
-
         </div>
+
     </div>
 
 </div>

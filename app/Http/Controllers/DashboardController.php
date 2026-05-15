@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Budget;
 use App\Models\Depense;
+use App\Models\Epargne;
+use App\Models\ObjectifEpargne;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -36,6 +38,19 @@ class DashboardController extends Controller
         $totalReserve    = (float) $revenus->where('quota_applique', true)->sum('montant_dispo'); // 70% bloqué
         $totalDepenses   = (float) $budget->depenses()->sum('montant');
         $soldeDisponible = (float) $budget->salaire_fixe + $totalDepensable - $totalDepenses;
+
+        // Épargne du mois = part salaire fixe + solde réserve bonus
+        $epargneSalaire   = (float) ($budget->salaire_fixe * ($user->epargne_salaire_pct ?? 0) / 100);
+        $epargneNaturelle = round($epargneSalaire + $totalReserve); // réserve bonus (70%) + part salaire
+
+        // Objectif actif : le premier non atteint couvrant le mois courant
+        $dateMois = Carbon::createFromDate($annee, $mois, 1);
+        $objectifActif = ObjectifEpargne::where('user_id', $user->id)
+            ->where('atteint', false)
+            ->where('date_debut', '<=', $dateMois->copy()->endOfMonth())
+            ->where(fn($q) => $q->whereNull('date_fin')->orWhere('date_fin', '>=', $dateMois->copy()->startOfMonth()))
+            ->orderBy('date_fin')
+            ->first();
 
         $revenuTotal = $budget->salaire_fixe + $totalDepensable;
         $sante = match(true) {
@@ -86,10 +101,13 @@ class DashboardController extends Controller
         // Alertes actives
         $alertes = $user->alertes()->whereNull('lu_at')->orderByDesc('created_at')->take(5)->get();
 
+        $epargne_salaire_pct = (int) ($user->epargne_salaire_pct ?? 0);
+
         return view('dashboard', compact(
-            'budget', 'revenus',
+            'budget', 'revenus', 'user',
             'totalDepensable', 'totalReserve', 'totalDepenses', 'soldeDisponible',
-            'sante', 'joursLabels', 'joursData',
+            'epargneSalaire', 'epargneNaturelle', 'objectifActif', 'epargne_salaire_pct',
+            'revenuTotal', 'sante', 'joursLabels', 'joursData',
             'parCategorie', 'dernieresDepenses', 'alertes',
             'mois', 'annee'
         ));

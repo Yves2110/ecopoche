@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Budget;
 use App\Models\Epargne;
 use App\Models\ObjectifEpargne;
+use App\Models\Revenu;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class EpargneController extends Controller
 {
@@ -19,6 +21,46 @@ class EpargneController extends Controller
         );
     }
 
+    /**
+     * Recalcule montant_actuel de chaque objectif non atteint en cumulant
+     * l'épargne naturelle (épargne salaire + réserve bonus) de chaque mois
+     * couvert par la période de l'objectif.
+     */
+    private function recalculerObjectifs(): void
+    {
+        $user = Auth::user();
+        $pctSalaire = (float) ($user->epargne_salaire_pct ?? 0) / 100;
+
+        $objectifs = ObjectifEpargne::where('user_id', $user->id)
+            ->where('atteint', false)
+            ->get();
+
+        foreach ($objectifs as $objectif) {
+            $debut = $objectif->date_debut ?? now()->startOfYear();
+            $fin   = $objectif->date_fin   ?? now()->endOfMonth();
+
+            // Budgets couverts par la période de l'objectif
+            $budgets = Budget::where('user_id', $user->id)
+                ->where(DB::raw("STR_TO_DATE(CONCAT(annee,'-',LPAD(mois,2,'0'),'-01'), '%Y-%m-%d')"), '>=', $debut->startOfMonth()->format('Y-m-d'))
+                ->where(DB::raw("STR_TO_DATE(CONCAT(annee,'-',LPAD(mois,2,'0'),'-01'), '%Y-%m-%d')"), '<=', $fin->endOfMonth()->format('Y-m-d'))
+                ->with('revenus')
+                ->get();
+
+            $cumul = 0;
+            foreach ($budgets as $b) {
+                // Épargne sur salaire fixe
+                $cumul += $b->salaire_fixe * $pctSalaire;
+                // Réserve bonus (70% des revenus variables)
+                $cumul += $b->revenus->where('quota_applique', true)->sum('montant_dispo');
+            }
+
+            $cumul = (int) round($cumul);
+            $objectif->update([
+                'montant_actuel' => min($cumul, (float) $objectif->montant_cible),
+            ]);
+        }
+    }
+
     public function index(Request $request)
     {
         $mois  = (int) $request->get('mois', now()->month);
@@ -26,6 +68,8 @@ class EpargneController extends Controller
 
         $budget  = $this->getBudgetOuCreer($mois, $annee);
         $epargne = $budget->epargne;
+
+        $this->recalculerObjectifs();
 
         // Objectifs personnels (multi-mois)
         $objectifs = ObjectifEpargne::where('user_id', Auth::id())
@@ -87,6 +131,7 @@ class EpargneController extends Controller
              'deficit' => $deficit, 'analyse' => $data['analyse'] ?? null]
         );
         $budget->update(['epargne_objectif' => $data['objectif']]);
+        $this->recalculerObjectifs();
 
         $msg = $deficit > 0
             ? 'Suivi enregistré. Déficit : ' . number_format($deficit, 0, ',', "\u{00A0}") . ' FCFA.'
@@ -114,6 +159,7 @@ class EpargneController extends Controller
             'couleur'        => $data['couleur'] ?? '#006c49',
             'icone'          => $data['icone'] ?? 'savings',
         ]));
+        $this->recalculerObjectifs();
 
         return back()->with('success', "Objectif « {$data['nom']} » créé.");
     }

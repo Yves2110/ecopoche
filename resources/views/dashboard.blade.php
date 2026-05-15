@@ -1,83 +1,116 @@
 <x-layouts.app title="Dashboard" pageTitle="Vue d'ensemble"
     pageSubtitle="{{ \Carbon\Carbon::createFromDate($annee, $mois, 1)->translatedFormat('F Y') }}" monthSelector>
 
-{{-- ===== SANTÉ BUDGÉTAIRE ===== --}}
-<div class="grid grid-cols-12 gap-4 mb-4">
+{{-- ===== LIGNE HAUTE : SANTÉ + ÉPARGNE DU MOIS + OBJECTIF ===== --}}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
 
 @php
     $santeCfg = [
-        'neutre'    => ['bg'=>'bg-[#F8FAFC]',       'border'=>'border-[#E5E7EB]',    'badge'=>'bg-gray-100 text-gray-500',       'icon'=>'pending',      'iconcol'=>'text-gray-400',   'titre'=>'Budget non configuré', 'msg'=>'Commencez par saisir votre salaire et vos dépenses pour activer le suivi.'],
-        'sain'      => ['bg'=>'bg-[#006c49]/5',  'border'=>'border-[#006c49]/20', 'badge'=>'bg-[#006c49]/10 text-[#006c49]',  'icon'=>'verified',     'iconcol'=>'text-[#006c49]',  'titre'=>'Budget maîtrisé',      'msg'=>'Vos dépenses sont en bonne trajectoire.'],
-        'attention' => ['bg'=>'bg-[#F59E0B]/5',  'border'=>'border-[#F59E0B]/20', 'badge'=>'bg-[#fef3c7] text-[#92400e]',     'icon'=>'warning',      'iconcol'=>'text-[#F59E0B]',  'titre'=>'Attention au budget',  'msg'=>'Plus de 70% de vos revenus sont dépensés.'],
-        'critique'  => ['bg'=>'bg-[#EF4444]/5',  'border'=>'border-[#EF4444]/20', 'badge'=>'bg-[#fee2e2] text-[#991b1b]',     'icon'=>'error',        'iconcol'=>'text-[#EF4444]',  'titre'=>'Budget dépassé !',     'msg'=>'Vos dépenses excèdent vos revenus disponibles.'],
+        'neutre'    => ['bg'=>'bg-[#F8FAFC]',      'border'=>'border-[#E5E7EB]',    'badge'=>'bg-gray-100 text-gray-500',      'icon'=>'pending',  'iconcol'=>'text-gray-400',  'titre'=>'Non configuré',     'msg'=>'Saisissez votre salaire pour activer le suivi.'],
+        'sain'      => ['bg'=>'bg-[#006c49]/5',     'border'=>'border-[#006c49]/20', 'badge'=>'bg-[#006c49]/10 text-[#006c49]', 'icon'=>'verified', 'iconcol'=>'text-[#006c49]', 'titre'=>'Budget maîtrisé',   'msg'=>'Vos dépenses sont en bonne trajectoire.'],
+        'attention' => ['bg'=>'bg-[#F59E0B]/5',     'border'=>'border-[#F59E0B]/20', 'badge'=>'bg-[#fef3c7] text-[#92400e]',    'icon'=>'warning',  'iconcol'=>'text-[#F59E0B]', 'titre'=>'Attention budget',  'msg'=>'Plus de 70% de vos revenus sont dépensés.'],
+        'critique'  => ['bg'=>'bg-[#EF4444]/5',     'border'=>'border-[#EF4444]/20', 'badge'=>'bg-[#fee2e2] text-[#991b1b]',    'icon'=>'error',    'iconcol'=>'text-[#EF4444]', 'titre'=>'Budget dépassé !',  'msg'=>'Vos dépenses excèdent vos revenus.'],
     ];
     $cfg = $santeCfg[$sante];
 @endphp
-    {{-- Bannière santé --}}
-    <div class="col-span-12 lg:col-span-8 soft-card p-5 flex items-center justify-between relative overflow-hidden {{ $cfg['bg'] }} {{ $cfg['border'] }}">
-        <div class="z-10">
-            <span class="inline-block px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider mb-2 {{ $cfg['badge'] }}">Santé Financière</span>
-            <h3 class="font-headline text-xl font-bold text-[#002452]">{{ $cfg['titre'] }}</h3>
-            <p class="text-sm text-[#6B7280] mt-1 max-w-md">{{ $cfg['msg'] }}</p>
+
+    {{-- Card 1 : Santé financière --}}
+    <div class="soft-card p-5 flex flex-col justify-between relative overflow-hidden {{ $cfg['bg'] }} {{ $cfg['border'] }}">
+        <div class="flex items-start justify-between">
+            <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider {{ $cfg['badge'] }}">Santé Financière</span>
+            <span class="material-symbols-outlined text-2xl {{ $cfg['iconcol'] }}" style="font-variation-settings:'FILL' 1;">{{ $cfg['icon'] }}</span>
         </div>
-        <div class="hidden sm:flex w-16 h-16 rounded-full items-center justify-center z-10 flex-shrink-0 {{ $cfg['bg'] }}">
-            <span class="material-symbols-outlined text-4xl {{ $cfg['iconcol'] }}" style="font-variation-settings:'FILL' 1;">{{ $cfg['icon'] }}</span>
+        <div class="mt-3">
+            <h3 class="font-headline text-lg font-bold text-[#002452]">{{ $cfg['titre'] }}</h3>
+            <p class="text-xs text-[#6B7280] mt-1">{{ $cfg['msg'] }}</p>
+        </div>
+        <div class="mt-4 pt-3 border-t border-[#E5E7EB] flex items-center gap-3">
+            <div class="flex-1">
+                <p class="text-[10px] text-[#6B7280] font-bold uppercase mb-1">Dépensé / Dispo</p>
+                <div class="h-1.5 rounded-full bg-[#E5E7EB] overflow-hidden">
+                    @php $pctDep = $revenuTotal > 0 ? min(100, round($totalDepenses / $revenuTotal * 100)) : 0; @endphp
+                    <div class="h-full rounded-full transition-all"
+                         style="width:{{ $pctDep }}%; background-color:{{ $sante === 'critique' ? '#EF4444' : ($sante === 'attention' ? '#F59E0B' : '#006c49') }}"></div>
+                </div>
+            </div>
+            <span class="text-xs font-bold {{ $sante === 'critique' ? 'text-[#EF4444]' : ($sante === 'attention' ? 'text-[#F59E0B]' : 'text-[#006c49]') }}">{{ $pctDep }}%</span>
         </div>
     </div>
 
 @php
-    $epargne   = $budget->epargne;
-    $epargneObjt = $epargne ? (int)$epargne->objectif : (int)$budget->epargne_objectif;
-    $epargneReel = $epargne ? (int)$epargne->reel : 0;
-    $epargnePct  = $epargneObjt > 0 ? min(100, round($epargneReel / $epargneObjt * 100)) : 0;
+    // Card 2 : Épargne du mois = épargne salaire + réserve bonus
+    $epMoisPctSalaire = $epargne_salaire_pct;
+    $epMoisSalaire    = (int) $epargneSalaire;
+    $epMoisReserve    = (int) $totalReserve;
+    $epMoisTotal      = (int) $epargneNaturelle;
 @endphp
-@php
-    // Couleurs dynamiques selon la progression d'épargne
-    if ($epargneObjt <= 0) {
-        $epCfg = ['bg' => '#002452',   'accent' => '#6ffbbe', 'bar' => '#6ffbbe',  'badge' => 'Non défini', 'badgecol' => 'bg-white/20 text-white/70', 'icon' => 'savings'];
-    } elseif ($epargnePct >= 100) {
-        $epCfg = ['bg' => '#006c49',   'accent' => '#6ffbbe', 'bar' => '#ffffff',  'badge' => 'Objectif atteint !', 'badgecol' => 'bg-white/20 text-white font-bold', 'icon' => 'check_circle'];
-    } elseif ($epargnePct >= 50) {
-        $epCfg = ['bg' => '#002452',   'accent' => '#6ffbbe', 'bar' => '#6ffbbe',  'badge' => 'En bonne voie', 'badgecol' => 'bg-[#6ffbbe]/20 text-[#6ffbbe]', 'icon' => 'trending_up'];
-    } elseif ($epargnePct >= 20) {
-        $epCfg = ['bg' => '#92400e',   'accent' => '#FCD34D', 'bar' => '#FCD34D',  'badge' => 'À améliorer', 'badgecol' => 'bg-[#FCD34D]/20 text-[#FCD34D]', 'icon' => 'warning'];
-    } else {
-        $epCfg = ['bg' => '#7f1d1d',   'accent' => '#FCA5A5', 'bar' => '#FCA5A5',  'badge' => 'Insuffisant', 'badgecol' => 'bg-[#FCA5A5]/20 text-[#FCA5A5]', 'icon' => 'error'];
-    }
-@endphp
-    {{-- Bloc épargne --}}
-    <div class="col-span-12 lg:col-span-4 text-white p-5 rounded-xl flex flex-col justify-between shadow-lg transition-colors duration-500"
-         style="background-color: {{ $epCfg['bg'] }}">
-        <div class="flex justify-between items-center mb-3">
+
+    {{-- Card 2 : Épargne du mois --}}
+    <div class="soft-card p-5 flex flex-col justify-between" style="background-color:#002452">
+        <div class="flex items-start justify-between">
             <div>
-                <h3 class="font-headline text-base font-bold">Épargne du mois</h3>
-                <span class="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mt-1 {{ $epCfg['badgecol'] }}">
-                    {{ $epCfg['badge'] }}
-                </span>
+                <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/10 text-white/70">Épargne du mois</span>
             </div>
-            <span class="material-symbols-outlined text-xl" style="color:{{ $epCfg['accent'] }};font-variation-settings:'FILL' 1;">{{ $epCfg['icon'] }}</span>
+            <span class="material-symbols-outlined text-2xl" style="color:#6ffbbe;font-variation-settings:'FILL' 1;">savings</span>
         </div>
-        <div>
-            <div class="flex justify-between text-xs mb-1">
-                <span class="text-white/70">Progression</span>
-                <span class="font-bold" style="color:{{ $epCfg['accent'] }}">{{ $epargnePct }}%</span>
-            </div>
-            <div class="h-2 rounded-full bg-white/10 overflow-hidden">
-                <div class="h-full rounded-full transition-all duration-700"
-                     style="width: {{ $epargnePct }}%; background-color: {{ $epCfg['bar'] }}"></div>
-            </div>
+        <div class="mt-3">
+            <p class="font-headline text-2xl font-bold text-white">{{ number_format($epMoisTotal, 0, ',', "\u{00A0}") }} <span class="text-sm font-normal text-white/60">FCFA</span></p>
         </div>
-        <div class="mt-4 pt-4 border-t border-white/10 flex items-end justify-between">
+        <div class="mt-4 pt-3 border-t border-white/10 grid grid-cols-2 gap-3">
             <div>
-                <p class="text-[10px] text-white/50 font-bold uppercase">Objectif</p>
-                <p class="font-headline text-lg font-bold">{{ number_format($epargneObjt, 0, ',', "\u{00A0}") }} FCFA</p>
+                <p class="text-[10px] text-white/50 font-bold uppercase">Sur salaire ({{ $epMoisPctSalaire }}%)</p>
+                <p class="text-sm font-bold text-white mt-0.5">{{ number_format($epMoisSalaire, 0, ',', "\u{00A0}") }}</p>
             </div>
-            <div class="text-right">
-                <p class="text-[10px] font-bold uppercase" style="color:{{ $epCfg['accent'] }}">Réel</p>
-                <p class="font-headline text-lg font-bold">{{ number_format($epargneReel, 0, ',', "\u{00A0}") }} FCFA</p>
+            <div>
+                <p class="text-[10px] text-white/50 font-bold uppercase">Réserve bonus</p>
+                <p class="text-sm font-bold" style="color:#6ffbbe;margin-top:0.125rem">{{ number_format($epMoisReserve, 0, ',', "\u{00A0}") }}</p>
             </div>
         </div>
     </div>
+
+@php
+    // Card 3 : Objectif épargne actif
+    if ($objectifActif) {
+        $objPct    = $objectifActif->pourcentage;
+        $objNom    = $objectifActif->nom;
+        $objCible  = (int) $objectifActif->montant_cible;
+        $objActuel = (int) $objectifActif->montant_actuel;
+        $objRestant = (int) $objectifActif->restant;
+        if ($objPct >= 100)      $objCfg = ['bg'=>'#006c49', 'accent'=>'#6ffbbe', 'badge'=>'Atteint !',     'icon'=>'check_circle'];
+        elseif ($objPct >= 50)   $objCfg = ['bg'=>'#004f35', 'accent'=>'#6ffbbe', 'badge'=>'En bonne voie','icon'=>'trending_up'];
+        elseif ($objPct >= 20)   $objCfg = ['bg'=>'#92400e', 'accent'=>'#FCD34D', 'badge'=>'À améliorer',  'icon'=>'warning'];
+        else                     $objCfg = ['bg'=>'#1e3a5f', 'accent'=>'#93C5FD', 'badge'=>'Démarré',      'icon'=>'flag'];
+    } else {
+        $objPct = 0; $objNom = 'Aucun objectif actif'; $objCible = 0; $objActuel = 0; $objRestant = 0;
+        $objCfg = ['bg'=>'#374151', 'accent'=>'#9CA3AF', 'badge'=>'Non défini', 'icon'=>'flag'];
+    }
+@endphp
+
+    {{-- Card 3 : Objectif épargne --}}
+    <div class="soft-card p-5 flex flex-col justify-between text-white" style="background-color:{{ $objCfg['bg'] }}">
+        <div class="flex items-start justify-between">
+            <span class="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/10 text-white/70">{{ $objCfg['badge'] }}</span>
+            <span class="material-symbols-outlined text-2xl" style="color:{{ $objCfg['accent'] }};font-variation-settings:'FILL' 1;">{{ $objCfg['icon'] }}</span>
+        </div>
+        <div class="mt-2">
+            <p class="text-xs text-white/60 font-medium truncate">{{ $objNom }}</p>
+            <p class="font-headline text-2xl font-bold mt-0.5">{{ number_format($objActuel, 0, ',', "\u{00A0}") }} <span class="text-sm font-normal text-white/60">/ {{ number_format($objCible, 0, ',', "\u{00A0}") }}</span></p>
+        </div>
+        <div class="mt-4 pt-3 border-t border-white/10">
+            <div class="flex justify-between text-[10px] text-white/50 font-bold uppercase mb-1.5">
+                <span>Progression</span>
+                <span style="color:{{ $objCfg['accent'] }}">{{ $objPct }}%</span>
+            </div>
+            <div class="h-2 rounded-full bg-white/10 overflow-hidden">
+                <div class="h-full rounded-full transition-all duration-700"
+                     style="width:{{ $objPct }}%; background-color:{{ $objCfg['accent'] }}"></div>
+            </div>
+            @if($objectifActif && $objRestant > 0)
+            <p class="text-[10px] text-white/40 mt-1.5">Reste {{ number_format($objRestant, 0, ',', "\u{00A0}") }} FCFA</p>
+            @endif
+        </div>
+    </div>
+
 </div>
 
 {{-- ===== KPI CARDS ===== --}}
