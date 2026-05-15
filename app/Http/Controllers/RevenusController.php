@@ -28,11 +28,17 @@ class RevenusController extends Controller
 
         $revenus       = $budget->revenus()->orderByDesc('date')->get();
         $bonusRevenus  = $revenus->where('quota_applique', true);
-        // montant_quota = 30% dépensable, montant_dispo = 70% réserve
-        $totalDepensable = (float) $bonusRevenus->sum('montant_quota');  // 30%
-        $totalReserve    = (float) $bonusRevenus->sum('montant_dispo');   // 70%
+        // montant_quota = % dépensable, montant_dispo = reste en réserve (bonus/extras)
+        $totalDepensable = (float) $bonusRevenus->sum('montant_quota');
+        $totalReserve    = (float) $bonusRevenus->sum('montant_dispo');
         $debloque        = (float) $bonusRevenus->sum(fn($r) => optional($r->quotaLog)->debloquer ?? 0);
-        $soldeReserve    = $totalReserve - $debloque; // réserve nette après déblocages
+        $soldeReserve    = $totalReserve - $debloque;
+
+        // Épargne programmée sur salaire fixe
+        $user = Auth::user();
+        $epargnesSalairePct = (int) ($user->epargne_salaire_pct ?? 0);
+        $epargneSalaire     = (float) round($budget->salaire_fixe * $epargnesSalairePct / 100, 2);
+        $salaireDisponible  = (float) $budget->salaire_fixe - $epargneSalaire;
 
         $budgetPrecedent = Budget::where('user_id', Auth::id())
             ->where(function ($q) use ($mois, $annee) {
@@ -52,7 +58,8 @@ class RevenusController extends Controller
 
         return view('revenus.index', compact(
             'budget', 'revenus', 'mois', 'annee',
-            'totalDepensable', 'totalReserve', 'soldeReserve', 'variationSalaire'
+            'totalDepensable', 'totalReserve', 'soldeReserve', 'variationSalaire',
+            'epargnesSalairePct', 'epargneSalaire', 'salaireDisponible'
         ));
     }
 

@@ -77,17 +77,26 @@ Route::middleware('auth')->group(function () {
 
     // ---- Profil / Paramètres ----
     Route::prefix('profil')->name('profil.')->middleware('throttle:profil')->group(function () {
-        Route::get('/',              [ProfilController::class, 'index'])->name('index');
-        Route::put('/infos',         [ProfilController::class, 'updateInfos'])->name('update.infos');
-        Route::put('/password',      [ProfilController::class, 'updateMotDePasse'])->name('update.password');
-        Route::put('/preferences',   [ProfilController::class, 'updatePreferences'])->name('update.preferences');
+        Route::get('/',                          [ProfilController::class, 'index'])->name('index');
+        Route::put('/infos',                     [ProfilController::class, 'updateInfos'])->name('update.infos');
+        Route::put('/password',                  [ProfilController::class, 'updateMotDePasse'])->name('update.password');
+        Route::put('/preferences',               [ProfilController::class, 'updatePreferences'])->name('update.preferences');
+        Route::post('/categories',               [ProfilController::class, 'storeCategorie'])->name('categories.store');
+        Route::put('/categories/{categorie}',    [ProfilController::class, 'updateCategorie'])->name('categories.update');
+        Route::delete('/categories/{categorie}', [ProfilController::class, 'destroyCategorie'])->name('categories.destroy');
     });
 
     // ---- Rapports ----
     Route::prefix('rapports')->name('rapports.')->group(function () {
-        Route::get('/',              [RapportsController::class, 'index'])->name('index');
-        Route::get('/export/csv',    [RapportsController::class, 'exportCsv'])->name('export.csv');
-        Route::get('/export/pdf',    [RapportsController::class, 'exportPdf'])->name('export.pdf');
+        Route::get('/',                       [RapportsController::class, 'index'])->name('index');
+        Route::get('/export/csv',             [RapportsController::class, 'exportCsv'])->name('export.csv');
+        Route::get('/export/pdf',             [RapportsController::class, 'exportPdf'])->name('export.pdf');
+        Route::get('/export/pdf-comparatif',   [RapportsController::class, 'exportPdfComparatif'])->name('export.pdf.comparatif');
+        Route::post('/export/pdf-graphique',   [RapportsController::class, 'exportPdfAvecGraphique'])->name('export.pdf.graphique');
+        Route::get('/export/csv-comparatif',   [RapportsController::class, 'exportCsvComparatif'])->name('export.csv.comparatif');
+        Route::get('/bilan-annuel',            [RapportsController::class, 'bilanAnnuel'])->name('bilan-annuel');
+        Route::get('/bilan-annuel/pdf',        [RapportsController::class, 'exportPdfBilanAnnuel'])->name('bilan-annuel.pdf');
+        Route::post('/bilan-annuel/pdf',       [RapportsController::class, 'exportPdfBilanAnnuelGraphique'])->name('bilan-annuel.pdf.graphique');
     });
 
     // ---- Revenus ----

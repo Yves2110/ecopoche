@@ -34,36 +34,48 @@
             @endif
         </div>
         <p class="kpi-label">Salaire fixe</p>
-        <p class="kpi-value">{{ number_format((int)$budget->salaire_fixe, 0, ',', ' ') }} FCFA</p>
+        <p class="kpi-value">{{ number_format((int)$budget->salaire_fixe, 0, ',', ' ') }} FCFA</p>
+        @if($epargnesSalairePct > 0)
+        <p class="text-[10px] text-[#006c49] font-semibold mt-1 flex items-center gap-1">
+            <span class="material-symbols-outlined text-xs">savings</span>
+            {{ $epargnesSalairePct }}% épargné → {{ number_format((int)$epargneSalaire, 0, ',', ' ') }} FCFA/mois
+        </p>
+        @endif
     </div>
 
-    {{-- Disponible ce mois (30%) --}}
+    {{-- Salaire disponible (après épargne programmée) --}}
     <div class="kpi-card border-[#006c49]/30 bg-[#006c49]/5">
         <div class="flex justify-between items-start mb-3">
             <span class="material-symbols-outlined text-[#006c49] text-lg">payments</span>
-            <span class="text-[10px] bg-[#d1fae5] text-[#065f46] font-bold px-2 py-0.5 rounded-full">30% utilisable</span>
+            @if($epargnesSalairePct > 0)
+            <span class="text-[10px] bg-[#d1fae5] text-[#065f46] font-bold px-2 py-0.5 rounded-full">-{{ $epargnesSalairePct }}% épargne</span>
+            @endif
         </div>
-        <p class="kpi-label text-[#006c49]">Dépensable ce mois (30%)</p>
-        <p class="kpi-value text-[#006c49]">{{ number_format((int)$totalDepensable, 0, ',', ' ') }} FCFA</p>
+        <p class="kpi-label text-[#006c49]">Salaire dépensable</p>
+        <p class="kpi-value text-[#006c49]">{{ number_format((int)$salaireDisponible, 0, ',', ' ') }} FCFA</p>
     </div>
 
-    {{-- Solde de réserve conservé (70%) --}}
+    {{-- Réserve bonus/extras --}}
     <div class="kpi-card border-[#6366F1]/20 bg-[#6366F1]/5">
         <div class="flex justify-between items-start mb-3">
             <span class="material-symbols-outlined text-[#6366F1] text-lg">lock</span>
-            <span class="text-[10px] bg-[#ede9fe] text-[#5b21b6] font-bold px-2 py-0.5 rounded-full">70% réserve</span>
+            <span class="text-[10px] bg-[#ede9fe] text-[#5b21b6] font-bold px-2 py-0.5 rounded-full">Réserve bonus</span>
         </div>
-        <p class="kpi-label text-[#5b21b6]">Réserve bloquée (70%)</p>
+        <p class="kpi-label text-[#5b21b6]">Réserve bonus / extras</p>
         <p class="kpi-value text-[#5b21b6]">{{ number_format((int)$totalReserve, 0, ',', ' ') }} FCFA</p>
     </div>
 
-    {{-- Total revenus --}}
-    <div class="kpi-card border-[#006c49]/30 bg-[#006c49]/5">
+    {{-- Total épargne : salaire + bonus réserve --}}
+    <div class="kpi-card {{ ($epargneSalaire + $totalReserve) > 0 ? 'border-[#006c49]/40 bg-[#006c49]/5' : '' }}">
         <div class="flex justify-between items-start mb-3">
-            <span class="material-symbols-outlined text-[#006c49] text-lg">show_chart</span>
+            <span class="material-symbols-outlined text-[#006c49] text-lg">savings</span>
+            <span class="text-[10px] bg-[#d1fae5] text-[#065f46] font-bold px-2 py-0.5 rounded-full">Total réserve</span>
         </div>
-        <p class="kpi-label text-[#006c49]">Budget utilisable (fixe + 30%)</p>
-        <p class="kpi-value text-[#006c49]">{{ number_format((int)($budget->salaire_fixe + $totalDepensable), 0, ',', ' ') }} FCFA</p>
+        <p class="kpi-label text-[#006c49]">Épargne totale du mois</p>
+        <p class="kpi-value text-[#006c49]">{{ number_format((int)($epargneSalaire + $totalReserve), 0, ',', ' ') }} FCFA</p>
+        @if($epargneSalaire > 0 && $totalReserve > 0)
+        <p class="text-[10px] text-[#6B7280] mt-1">Salaire {{ number_format((int)$epargneSalaire, 0, ',', ' ') }} + Bonus {{ number_format((int)$totalReserve, 0, ',', ' ') }}</p>
+        @endif
     </div>
 </div>
 
@@ -100,6 +112,31 @@
             @error('salaire_fixe')
                 <p class="text-[#EF4444] text-xs mt-2">{{ $message }}</p>
             @enderror
+
+            {{-- Épargne programmée sur salaire --}}
+            @if($epargnesSalairePct > 0 && $budget->salaire_fixe > 0)
+            <div class="mt-4 p-3 bg-[#f0fdf4] border border-[#6ee7b7] rounded-xl flex items-center justify-between gap-3 flex-wrap">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[#006c49] text-lg" style="font-variation-settings:'FILL' 1;">savings</span>
+                    <div>
+                        <p class="text-xs font-bold text-[#065f46]">Épargne programmée sur salaire fixe</p>
+                        <p class="text-[11px] text-[#6B7280]">{{ $epargnesSalairePct }}% de votre salaire est automatiquement mis en réserve</p>
+                    </div>
+                </div>
+                <div class="text-right flex-shrink-0">
+                    <p class="font-headline font-bold text-[#006c49] text-base">{{ number_format((int)$epargneSalaire, 0, ',', ' ') }} FCFA</p>
+                    <p class="text-[10px] text-[#6B7280]">Disponible : {{ number_format((int)$salaireDisponible, 0, ',', ' ') }} FCFA</p>
+                </div>
+            </div>
+            @elseif($epargnesSalairePct === 0)
+            <div class="mt-4 p-3 bg-[#FFFBEB] border border-[#FDE68A] rounded-xl flex items-center gap-2">
+                <span class="material-symbols-outlined text-[#D97706] text-base flex-shrink-0">info</span>
+                <p class="text-[11px] text-[#92400E]">
+                    Aucune épargne programmée sur le salaire fixe.
+                    <a href="{{ route('profil.index') }}" class="font-bold underline">Configurer dans les Paramètres →</a>
+                </p>
+            </div>
+            @endif
         </div>
 
         {{-- Formulaire ajout revenu variable --}}

@@ -17,7 +17,7 @@ class User extends Authenticatable
         'name', 'email', 'password',
         'role', 'is_active', 'created_by', 'devise', 'quota_taux', 'notifs_email',
         'seuil_attention', 'seuil_critique', 'seuil_plafond_cat',
-        'objectif_epargne_pct', 'jour_bilan_email', 'mode_discret',
+        'objectif_epargne_pct', 'jour_bilan_email', 'mode_discret', 'epargne_salaire_pct',
     ];
 
     protected $hidden = [
@@ -39,6 +39,7 @@ class User extends Authenticatable
             'objectif_epargne_pct' => 'integer',
             'jour_bilan_email'     => 'integer',
             'mode_discret'         => 'boolean',
+            'epargne_salaire_pct'  => 'integer',
         ];
     }
 

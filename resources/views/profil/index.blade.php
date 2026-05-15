@@ -25,13 +25,18 @@
     <p class="text-[10px] text-[#9CA3AF] flex-shrink-0 hidden sm:block">Membre depuis {{ $user->created_at->translatedFormat('M Y') }}</p>
 </div>
 
-@foreach(['success_infos'=>'Informations mises à jour.','success_mdp'=>'Mot de passe modifié.','success_prefs'=>'Préférences enregistrées.'] as $key => $msg)
+@foreach(['success_infos'=>'Informations mises à jour.','success_mdp'=>'Mot de passe modifié.','success_prefs'=>'Préférences enregistrées.','success_cats'=>null] as $key => $msg)
 @if(session($key))
 <div class="mb-4 p-3 rounded-lg bg-[#d1fae5] border border-[#006c49]/20 text-[#065f46] text-sm font-medium flex items-center gap-2">
-    <span class="material-symbols-outlined text-base">check_circle</span>{{ session($key) }}
+    <span class="material-symbols-outlined text-base">check_circle</span>{{ session($key) ?? $msg }}
 </div>
 @endif
 @endforeach
+@if($errors->has('cats'))
+<div class="mb-4 p-3 rounded-lg bg-[#fee2e2] border border-[#EF4444]/20 text-[#991b1b] text-sm font-medium flex items-center gap-2">
+    <span class="material-symbols-outlined text-base">error</span>{{ $errors->first('cats') }}
+</div>
+@endif
 
 <div class="grid grid-cols-12 gap-5 pb-24 lg:pb-4"
      x-data="{
@@ -40,6 +45,7 @@
         seuilCrit: {{ $seuilCrit }},
         seuilPlaf: {{ $seuilPlaf }},
         objEp: {{ $objEpPct }},
+        epS: {{ (int)($user->epargne_salaire_pct ?? 0) }},
         discret: {{ $user->mode_discret ? 'true' : 'false' }},
         notifs: {{ $user->notifs_email ? 'true' : 'false' }},
      }">
@@ -100,6 +106,103 @@
                 </div>
                 <button type="submit" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-[#002452] text-[#002452] text-sm font-semibold hover:bg-[#002452]/5 transition-colors">
                     <span class="material-symbols-outlined text-base">key</span> Modifier
+                </button>
+            </form>
+        </div>
+
+        {{-- ── Section 3 : Catégories de dépenses ── --}}
+        <div class="soft-card p-5" x-data="{ showForm: false, editId: null, editNom: '', editCouleur: '#6B7280' }">
+            <h4 class="font-headline text-sm font-semibold text-[#1F2937] mb-1 flex items-center gap-2">
+                <span class="material-symbols-outlined text-[#002452] text-base">category</span>
+                Catégories de dépenses
+            </h4>
+            <p class="text-xs text-[#9CA3AF] mb-4">Personnalisez vos dénominations de dépenses. Les catégories par défaut ne peuvent pas être supprimées.</p>
+
+            {{-- Liste des catégories existantes --}}
+            <div class="space-y-2 mb-4">
+                @foreach($categories as $cat)
+                <div class="flex items-center gap-2 p-2.5 border border-[#E5E7EB] rounded-xl bg-[#F8FAFC]"
+                     x-data="{ editing: false, nom: '{{ addslashes($cat->nom) }}', couleur: '{{ $cat->couleur }}' }">
+
+                    {{-- Pastille couleur --}}
+                    <div class="w-3 h-3 rounded-full flex-shrink-0" :style="'background:' + couleur"></div>
+
+                    {{-- Nom (lecture) --}}
+                    <span class="flex-1 text-sm text-[#1F2937] font-medium truncate" x-show="!editing">
+                        {{ $cat->nom }}
+                        @if($cat->is_default)
+                        <span class="text-[9px] text-[#9CA3AF] ml-1">(défaut)</span>
+                        @endif
+                    </span>
+
+                    {{-- Formulaire d'édition inline --}}
+                    <template x-if="editing">
+                        <form method="POST" action="{{ route('profil.categories.update', $cat) }}" class="flex-1 flex items-center gap-1.5">
+                            @csrf @method('PUT')
+                            <input type="color" name="couleur" x-model="couleur"
+                                   class="w-7 h-7 rounded cursor-pointer border border-[#E5E7EB] p-0.5 flex-shrink-0" />
+                            <input type="text" name="nom" x-model="nom" required maxlength="100"
+                                   class="flex-1 min-w-0 px-2 py-1 text-xs border border-[#002452] rounded-lg focus:outline-none" />
+                            <button type="submit" class="text-[#006c49] hover:text-[#004d33]">
+                                <span class="material-symbols-outlined text-base">check</span>
+                            </button>
+                            <button type="button" @click="editing = false" class="text-[#9CA3AF] hover:text-[#6B7280]">
+                                <span class="material-symbols-outlined text-base">close</span>
+                            </button>
+                        </form>
+                    </template>
+
+                    {{-- Actions (lecture) --}}
+                    <div class="flex items-center gap-1 flex-shrink-0" x-show="!editing">
+                        <button type="button" @click="editing = true"
+                                class="p-1 text-[#6B7280] hover:text-[#002452] rounded-lg hover:bg-[#002452]/5 transition-colors">
+                            <span class="material-symbols-outlined text-sm">edit</span>
+                        </button>
+                        @if(!$cat->is_default)
+                        <form method="POST" action="{{ route('profil.categories.destroy', $cat) }}"
+                              onsubmit="return confirm('Supprimer « {{ $cat->nom }} » ?')">
+                            @csrf @method('DELETE')
+                            <button type="submit"
+                                    class="p-1 text-[#9CA3AF] hover:text-[#EF4444] rounded-lg hover:bg-[#EF4444]/5 transition-colors">
+                                <span class="material-symbols-outlined text-sm">delete</span>
+                            </button>
+                        </form>
+                        @else
+                        <span class="p-1 text-[#E5E7EB]">
+                            <span class="material-symbols-outlined text-sm">lock</span>
+                        </span>
+                        @endif
+                    </div>
+                </div>
+                @endforeach
+            </div>
+
+            {{-- Bouton + Formulaire ajout --}}
+            <button type="button" @click="showForm = !showForm"
+                    class="w-full flex items-center justify-center gap-2 py-2 border border-dashed border-[#002452]/30 rounded-xl text-xs text-[#002452] font-semibold hover:bg-[#002452]/5 transition-colors">
+                <span class="material-symbols-outlined text-sm">add</span>
+                <span x-text="showForm ? 'Annuler' : 'Nouvelle catégorie'"></span>
+            </button>
+
+            <form x-show="showForm" x-cloak method="POST" action="{{ route('profil.categories.store') }}"
+                  class="mt-3 p-3 bg-[#F0F4FF] border border-[#002452]/15 rounded-xl space-y-2">
+                @csrf
+                @error('nom')<p class="text-[#EF4444] text-xs font-medium">{{ $message }}</p>@enderror
+                <div class="flex items-center gap-2">
+                    <div class="flex-shrink-0">
+                        <label class="block text-[10px] font-semibold text-[#6B7280] uppercase mb-1">Couleur</label>
+                        <input type="color" name="couleur" value="{{ old('couleur', '#6B7280') }}"
+                               class="w-10 h-9 rounded-lg cursor-pointer border border-[#E5E7EB] p-0.5" />
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-[10px] font-semibold text-[#6B7280] uppercase mb-1">Nom de la catégorie</label>
+                        <input type="text" name="nom" value="{{ old('nom') }}" required maxlength="100"
+                               placeholder="ex: Santé, Abonnements, Épicerie…"
+                               class="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-[#002452] bg-white" />
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary w-full flex items-center justify-center gap-2 text-xs py-2">
+                    <span class="material-symbols-outlined text-sm">add</span> Créer la catégorie
                 </button>
             </form>
         </div>
@@ -175,6 +278,41 @@
                         Utilisé comme référence dans le suivi épargne mensuel et les rapports.
                     </p>
                     @error('objectif_epargne_pct')<p class="text-[#EF4444] text-xs mt-1">{{ $message }}</p>@enderror
+                </div>
+
+                {{-- Épargne programmée sur salaire fixe --}}
+                <div class="mb-5">
+                    <div class="flex items-center justify-between mb-1">
+                        <div>
+                            <label class="text-xs font-semibold text-[#1F2937] uppercase tracking-wide flex items-center gap-1">
+                                <span class="material-symbols-outlined text-sm text-[#006c49]">savings</span>
+                                Épargne sur salaire fixe
+                            </label>
+                            <p class="text-[10px] text-[#9CA3AF] mt-0.5">% du salaire fixe mis en réserve automatiquement chaque mois</p>
+                        </div>
+                        <span class="text-base font-headline font-bold text-[#006c49]" x-text="epS + '%'"></span>
+                    </div>
+                    <input type="range" name="epargne_salaire_pct" min="0" max="50" step="1" x-model="epS"
+                           class="w-full h-2 bg-[#E5E7EB] rounded-full appearance-none cursor-pointer accent-[#006c49]" />
+                    <div class="flex justify-between text-[10px] text-[#9CA3AF] mt-0.5">
+                        <span>0% — désactivé</span><span>10%</span><span>50% max</span>
+                    </div>
+                    <div class="mt-2 grid grid-cols-2 gap-2" x-show="epS > 0">
+                        <div class="p-2.5 bg-[#f0fdf4] border border-[#006c49]/20 rounded-lg text-center">
+                            <p class="text-[9px] text-[#006c49] font-bold uppercase mb-0.5">Épargne (<span x-text="epS"></span>%)</p>
+                            <p class="font-headline font-bold text-[#006c49] text-xs" x-text="Math.round(200000 * epS / 100).toLocaleString('fr-FR') + ' F'"></p>
+                            <p class="text-[8px] text-[#9CA3AF]">sur 200 000 F</p>
+                        </div>
+                        <div class="p-2.5 bg-[#F8FAFC] border border-[#E5E7EB] rounded-lg text-center">
+                            <p class="text-[9px] text-[#6B7280] font-bold uppercase mb-0.5">Disponible</p>
+                            <p class="font-headline font-bold text-[#1F2937] text-xs" x-text="Math.round(200000 * (100-epS) / 100).toLocaleString('fr-FR') + ' F'"></p>
+                            <p class="text-[8px] text-[#9CA3AF]">dépensable</p>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-[#9CA3AF] mt-1 italic">
+                        0% = pas d'épargne sur salaire. Ajustez entre 1% et 50% selon votre discipline financière.
+                    </p>
+                    @error('epargne_salaire_pct')<p class="text-[#EF4444] text-xs mt-1">{{ $message }}</p>@enderror
                 </div>
 
                 {{-- Devise --}}

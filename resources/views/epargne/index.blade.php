@@ -1,5 +1,4 @@
-<x-layouts.app title="Épargne" pageTitle="Épargne" pageSubtitle="Objectifs & suivi mensuel"
-    x-data="{ onglet: '{{ request('onglet', 'objectifs') }}' }">
+<x-layouts.app title="Épargne" pageTitle="Épargne" pageSubtitle="Objectifs & suivi mensuel">
 
 @php
     $objMois  = $epargne ? (int)$epargne->objectif : 0;
@@ -9,6 +8,8 @@
     $totalCible  = (int) $objectifs->sum('montant_cible');
     $totalActuel = (int) $objectifs->sum('montant_actuel');
 @endphp
+
+<div x-data="{ onglet: '{{ request('onglet', 'objectifs') }}' }">
 
 {{-- ===== ONGLETS ===== --}}
 <div class="flex gap-1 mb-5 bg-[#F8FAFC] border border-[#E5E7EB] p-1 rounded-xl w-fit">
@@ -533,4 +534,5 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 @endpush
 
+</div>{{-- /x-data onglet --}}
 </x-layouts.app>

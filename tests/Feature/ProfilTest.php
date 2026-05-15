@@ -88,6 +88,7 @@ class ProfilTest extends TestCase
             'seuil_critique'       => 88,
             'seuil_plafond_cat'    => 75,
             'objectif_epargne_pct' => 15,
+            'epargne_salaire_pct'  => 10,
             'jour_bilan_email'     => 5,
             'mode_discret'         => '0',
         ], $overrides);
@@ -105,6 +106,7 @@ class ProfilTest extends TestCase
             'seuil_critique'       => 88,
             'seuil_plafond_cat'    => 75,
             'objectif_epargne_pct' => 15,
+            'epargne_salaire_pct'  => 10,
             'jour_bilan_email'     => 5,
         ]);
     }
@@ -133,5 +135,11 @@ class ProfilTest extends TestCase
     {
         $this->put(route('profil.update.preferences'), $this->validPrefsPayload(['objectif_epargne_pct' => 90]))
              ->assertSessionHasErrors('objectif_epargne_pct');
+    }
+
+    public function test_epargne_salaire_pct_max_50(): void
+    {
+        $this->put(route('profil.update.preferences'), $this->validPrefsPayload(['epargne_salaire_pct' => 60]))
+             ->assertSessionHasErrors('epargne_salaire_pct');
     }
 }

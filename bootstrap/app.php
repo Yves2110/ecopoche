@@ -17,6 +17,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // Vérification compte actif sur toutes les requêtes authentifiées
         $middleware->append(\App\Http\Middleware\CheckActive::class);
 
+        // Désactiver la vérification CSRF en environnement de test
+        if (env('APP_ENV') === 'testing') {
+            $middleware->validateCsrfTokens(except: ['*']);
+        }
+
         $middleware->alias([
             'role'   => \App\Http\Middleware\CheckRole::class,
             'active' => \App\Http\Middleware\CheckActive::class,
