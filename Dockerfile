@@ -7,9 +7,12 @@ RUN npm install && npm run build
 # === ÉTAPE 2 : Configuration du serveur PHP-FPM / Nginx ===
 FROM richarvey/nginx-php-fpm:latest
 
-# Désactiver les plugins obsolètes et forcer PHP-FPM à écouter sur un port TCP stable
+# Désactiver les plugins obsolètes partout
 ENV COMPOSER_PLUGINS_AUTOLOAD=0
 ENV PHP_FPM_LISTEN_MODE=tcp
+
+# 🧠 L'ASTUCE : On crée le dossier /root/.composer et on y met un fichier config pour bloquer hirak/prestissimo
+RUN mkdir -p /root/.composer && echo '{"config": {"allow-plugins": false}}' > /root/.composer/composer.json
 
 # Installer les dépendances système pour intl
 RUN apk update && apk add --no-cache icu-dev
