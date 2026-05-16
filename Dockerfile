@@ -1,15 +1,14 @@
 # === ÉTAPE 1 : Compilation des assets JS/CSS avec Node 22 ===
 FROM node:22-alpine AS node-builder
 WORKDIR /app
-
-# Copier l'intégralité du projet dans le dossier temporaire Node
 COPY . .
-
-# Installer les dépendances JS et compiler proprement
 RUN npm install && npm run build
 
 # === ÉTAPE 2 : Configuration du serveur PHP-FPM / Nginx ===
 FROM richarvey/nginx-php-fpm:latest
+
+# Désactiver explicitement les scripts d'installation de plugins obsolètes au démarrage
+ENV COMPOSER_PLUGINS_AUTOLOAD=0
 
 # Installer les dépendances système pour intl
 RUN apk update && apk add --no-cache icu-dev
