@@ -7,8 +7,9 @@ RUN npm install && npm run build
 # === ÉTAPE 2 : Configuration du serveur PHP-FPM / Nginx ===
 FROM richarvey/nginx-php-fpm:latest
 
-# Désactiver explicitement les scripts d'installation de plugins obsolètes au démarrage
+# Désactiver les plugins obsolètes et forcer PHP-FPM à écouter sur un port TCP stable
 ENV COMPOSER_PLUGINS_AUTOLOAD=0
+ENV PHP_FPM_LISTEN_MODE=tcp
 
 # Installer les dépendances système pour intl
 RUN apk update && apk add --no-cache icu-dev
