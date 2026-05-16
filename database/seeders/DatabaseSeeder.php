@@ -19,7 +19,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'admin@ecopoche.com'],
             [
                 'name'       => 'Super Admin',
-                'password'   => bcrypt('password123'),
+                'password'   => bcrypt('Prince2110@'),
                 'role'       => 'super_admin',
                 'is_active'  => true,
                 'devise'     => 'FCFA',
