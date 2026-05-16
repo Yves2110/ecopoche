@@ -61,9 +61,20 @@ class DepensesController extends Controller
 
         $totalMois = $budget->depenses()->sum('montant');
 
+        // Revenus variables (bonus) avec quota
+        $revenus = $budget->revenus()->get();
+        $totalDepensable = (float) $revenus->where('quota_applique', true)->sum('montant_quota'); // 30% utilisable
+
+        // Épargne programmée sur salaire fixe
+        $user = Auth::user();
+        $epargneSalaire = (float) ($budget->salaire_fixe * ($user->epargne_salaire_pct ?? 0) / 100);
+
+        // Solde restant = salaire fixe - épargne + bonus dépensable - dépenses
+        $soldeRestant = (float) $budget->salaire_fixe - $epargneSalaire + $totalDepensable - $totalMois;
+
         return view('depenses.index', compact(
             'budget', 'depenses', 'categories', 'mois', 'annee',
-            'vue', 'totalVue', 'totalMois', 'parCategorie'
+            'vue', 'totalVue', 'totalMois', 'parCategorie', 'soldeRestant'
         ));
     }
 

@@ -54,9 +54,6 @@
         <p class="kpi-label">Catégories actives</p>
         <p class="kpi-value">{{ $parCategorie->count() }}</p>
     </div>
-    @php
-        $soldeRestant = $budget->salaire_fixe - $totalMois;
-    @endphp
     <div class="kpi-card {{ $soldeRestant >= 0 ? 'border-[#006c49]/30 bg-[#006c49]/5' : 'border-[#EF4444]/30 bg-[#EF4444]/5' }}">
         <div class="flex justify-between items-start mb-3">
             <span class="material-symbols-outlined {{ $soldeRestant >= 0 ? 'text-[#006c49]' : 'text-[#EF4444]' }}">account_balance</span>

@@ -37,10 +37,12 @@ class DashboardController extends Controller
         $totalDepensable = (float) $revenus->where('quota_applique', true)->sum('montant_quota'); // 30% utilisable
         $totalReserve    = (float) $revenus->where('quota_applique', true)->sum('montant_dispo'); // 70% bloqué
         $totalDepenses   = (float) $budget->depenses()->sum('montant');
-        $soldeDisponible = (float) $budget->salaire_fixe + $totalDepensable - $totalDepenses;
 
         // Épargne du mois = part salaire fixe + solde réserve bonus
         $epargneSalaire   = (float) ($budget->salaire_fixe * ($user->epargne_salaire_pct ?? 0) / 100);
+
+        // Solde disponible = salaire fixe - épargne programmée + bonus dépensable - dépenses
+        $soldeDisponible = (float) $budget->salaire_fixe - $epargneSalaire + $totalDepensable - $totalDepenses;
         $epargneNaturelle = round($epargneSalaire + $totalReserve); // réserve bonus (70%) + part salaire
 
         // Objectif actif : le premier non atteint couvrant le mois courant
