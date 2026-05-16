@@ -2,13 +2,10 @@
 FROM node:22-alpine AS node-builder
 WORKDIR /app
 
-# Copie uniquement les fichiers de configuration de base (on retire postcss.config.js)
-COPY package*.json vite.config.js tailwind.config.js ./
+# Copier l'intégralité du projet dans le dossier temporaire Node
+COPY . .
 
-# Copie aussi le dossier des ressources nécessaires à Vite
-COPY resources/ ./resources/
-
-# Installation et compilation
+# Installer les dépendances JS et compiler proprement
 RUN npm install && npm run build
 
 # === ÉTAPE 2 : Configuration du serveur PHP-FPM / Nginx ===
