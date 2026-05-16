@@ -1,29 +1,35 @@
+# === ÉTAPE 1 : Compilation des assets JS/CSS avec Node 22 ===
+FROM node:22-alpine AS node-builder
+WORKDIR /app
+COPY package*.json vite.config.js tailwind.config.js ./
+# Copie aussi tes dossiers de ressources nécessaires à la compilation (ex: resources)
+COPY resources/ ./resources/
+RUN npm install && npm run build
+
+# === ÉTAPE 2 : Configuration du serveur PHP-FPM / Nginx ===
 FROM richarvey/nginx-php-fpm:latest
 
-# Étape 1 : Installer les dépendances système nécessaires pour l'extension intl et Node
-RUN apk update && apk add --no-cache \
-    icu-dev \
-    libstdc++ \
-    build-base \
-    nodejs \
-    npm
+# Installer les dépendances système pour intl
+RUN apk update && apk add --no-cache icu-dev
 
-# Étape 2 : Configurer et installer l'extension PHP intl de manière stable
+# Configurer et installer l'extension PHP intl
 RUN docker-php-ext-configure intl && docker-php-ext-install intl
 
-# Étape 3 : Copier l'application
+# Copier le code de l'application
 COPY . /var/www/html
 
-# Étape 4 : Configurations d'environnement indispensables
+# Récupérer les assets CSS/JS compilés à l'Étape 1
+COPY --from=node-builder /app/public/build /var/www/html/public/build
+
+# Configurations d'environnement indispensables
 ENV WEBROOT /var/www/html/public
 ENV COMPOSER_ALLOW_SUPERUSER 1
 
-# Étape 5 : Demander à l'image d'exécuter les migrations au démarrage
+# Demander à l'image d'exécuter les migrations au démarrage
 ENV RUN_MIGRATIONS true
 
-# Étape 6 : Donner les droits d'écriture à Laravel sur les dossiers de stockage
+# Ajuster les droits d'écriture pour Laravel
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Étape 7 : Installer les dépendances PHP/JS et compiler les assets
+# Installer les dépendances PHP uniquement
 RUN composer install --no-dev --optimize-autoloader
-RUN npm install && npm run build
