@@ -12,6 +12,9 @@
     <meta name="csrf-token" content="{{ csrf_token() }}" />
     <title>{{ $title ?? 'EcoPoche' }} — Gestion Budgétaire</title>
 
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate icon" href="/favicon.ico" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
