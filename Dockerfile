@@ -1,15 +1,40 @@
+# === ÉTAPE 1 : Compilation des assets JS/CSS avec Node 22 ===
+FROM node:22-alpine AS node-builder
+WORKDIR /app
+COPY . .
+RUN npm install && npm run build
+
+# === ÉTAPE 2 : Configuration du serveur PHP-FPM / Nginx ===
 FROM richarvey/nginx-php-fpm:latest
 
-# Étape 1 : Copie des fichiers
+# Désactiver les plugins obsolètes partout
+ENV COMPOSER_PLUGINS_AUTOLOAD=0
+ENV PHP_FPM_LISTEN_MODE=tcp
+
+# 🧠 L'ASTUCE : On crée le dossier /root/.composer et on y met un fichier config pour bloquer hirak/prestissimo
+RUN mkdir -p /root/.composer && echo '{"config": {"allow-plugins": false}}' > /root/.composer/composer.json
+
+# Installer les dépendances système pour intl
+RUN apk update && apk add --no-cache icu-dev
+
+# Configurer et installer l'extension PHP intl
+RUN docker-php-ext-configure intl && docker-php-ext-install intl
+
+# Copier le code de l'application
 COPY . /var/www/html
 
-# Étape 2 : Configurations d'environnement
+# Récupérer les assets CSS/JS compilés à l'Étape 1
+COPY --from=node-builder /app/public/build /var/www/html/public/build
+
+# Configurations d'environnement indispensables
 ENV WEBROOT /var/www/html/public
 ENV COMPOSER_ALLOW_SUPERUSER 1
 
-# Étape 3 : Installer Node.js et NPM (requis pour compiler les assets)
-RUN apk add --no-cache nodejs npm
+# Demander à l'image d'exécuter les migrations au démarrage
+ENV RUN_MIGRATIONS true
 
-# Étape 4 : Installer les dépendances PHP et JS, puis compiler
+# Ajuster les droits d'écriture pour Laravel
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+
+# Installer les dépendances PHP uniquement
 RUN composer install --no-dev --optimize-autoloader
-RUN npm install && npm run build
