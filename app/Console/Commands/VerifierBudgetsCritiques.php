@@ -31,7 +31,9 @@ class VerifierBudgetsCritiques extends Command
 
             $revenus         = $budget->revenus()->get();
             $totalDepensable = (float) $revenus->where('quota_applique', true)->sum('montant_quota');
-            $budgetTotal     = (float) $budget->salaire_fixe + $totalDepensable;
+            $salaire         = (float) $budget->salaire_fixe;
+            $epargneSalaire  = $salaire * (($user->epargne_salaire_pct ?? 0) / 100);
+            $budgetTotal     = $salaire - $epargneSalaire + $totalDepensable;
             $totalDepenses   = (float) $budget->depenses()->sum('montant');
             $solde           = $budgetTotal - $totalDepenses;
             $ratio           = $budgetTotal > 0 ? $totalDepenses / $budgetTotal : 0;

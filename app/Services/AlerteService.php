@@ -6,6 +6,7 @@ use App\Mail\AlerteSoldeRouge;
 use App\Models\Alerte;
 use App\Models\Budget;
 use App\Models\User;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
 class AlerteService
@@ -20,7 +21,8 @@ class AlerteService
         $totalDepensable = (float) $revenus->where('quota_applique', true)->sum('montant_quota');
         $totalDepenses   = (float) $budget->depenses()->sum('montant');
         $salaire         = (float) $budget->salaire_fixe;
-        $budgetTotal     = $salaire + $totalDepensable;
+        $epargneSalaire  = $salaire * (($user->epargne_salaire_pct ?? 0) / 100);
+        $budgetTotal     = $salaire - $epargneSalaire + $totalDepensable;
         $solde           = $budgetTotal - $totalDepenses;
 
         if ($budgetTotal <= 0) return;
@@ -47,10 +49,12 @@ class AlerteService
                  'ratio' => $ratio * 100, 'suggestions' => $suggestions],
                 $budget
             );
-            if ($estNouveau) {
+            if ($estNouveau && $user->notifs_email) {
                 try {
                     Mail::to($user->email)->send(new AlerteSoldeRouge($user, $budget, $solde, $ratio, $budgetTotal));
-                } catch (\Throwable) {}
+                } catch (\Throwable $e) {
+                    Log::error('AlerteService mail solde négatif: ' . $e->getMessage());
+                }
             }
         } elseif ($ratio >= $seuilCritique) {
             $estNouveau = self::creer($user, 'attention', 'warning',
@@ -58,10 +62,12 @@ class AlerteService
                 ['mois' => $budget->mois, 'annee' => $budget->annee, 'ratio' => $ratio * 100, 'solde' => $solde],
                 $budget
             );
-            if ($estNouveau) {
+            if ($estNouveau && $user->notifs_email) {
                 try {
                     Mail::to($user->email)->send(new AlerteSoldeRouge($user, $budget, $solde, $ratio, $budgetTotal));
-                } catch (\Throwable) {}
+                } catch (\Throwable $e) {
+                    Log::error('AlerteService mail seuil critique: ' . $e->getMessage());
+                }
             }
         } elseif ($ratio >= $seuilAttention) {
             self::creer($user, 'attention', 'warning',

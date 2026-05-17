@@ -54,13 +54,15 @@ class DashboardController extends Controller
             ->orderBy('date_fin')
             ->first();
 
-        $revenuTotal = $budget->salaire_fixe + $totalDepensable;
+        $revenuTotal = (float) $budget->salaire_fixe - $epargneSalaire + $totalDepensable;
+        $ratioConso = $revenuTotal > 0 ? $totalDepenses / $revenuTotal : 0;
         $sante = match(true) {
-            $revenuTotal == 0                                                              => 'neutre',
-            $totalDepenses == 0                                                            => 'sain',
-            $soldeDisponible > 0 && $totalDepenses / $revenuTotal < 0.7                   => 'sain',
-            $soldeDisponible > 0                                                           => 'attention',
-            default                                                                        => 'critique',
+            $revenuTotal == 0                              => 'neutre',
+            $totalDepenses == 0                            => 'sain',
+            $soldeDisponible <= 0                          => 'critique',
+            $ratioConso >= 0.9                             => 'critique',
+            $ratioConso >= 0.7                             => 'attention',
+            default                                        => 'sain',
         };
 
         // Flux journalier sur les 14 derniers jours
