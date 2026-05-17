@@ -17,6 +17,21 @@ Route::get('/', function () {
     return redirect()->route(auth()->check() ? 'dashboard' : 'login');
 });
 
+// ---- Cron externe (cron-job.org) ----
+// URL : https://ton-site.com/cron/{CRON_TOKEN}
+// Doit être appelée chaque minute par un service externe
+Route::get('/cron/{token}', function (string $token) {
+    if (!config('app.cron_token') || $token !== config('app.cron_token')) {
+        abort(403);
+    }
+    \Illuminate\Support\Facades\Artisan::call('schedule:run');
+    return response()->json([
+        'ok'     => true,
+        'time'   => now()->toDateTimeString(),
+        'output' => \Illuminate\Support\Facades\Artisan::output(),
+    ]);
+})->name('cron.run');
+
 // ---- Routes publiques (guests) ----
 Route::middleware('guest')->group(function () {
     Route::get('/login',  [AuthController::class, 'showLogin'])->name('login');

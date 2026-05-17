@@ -18,7 +18,7 @@ class EnvoyerRecapHebdomadaire extends Command
         $mois  = now()->month;
         $annee = now()->year;
 
-        $users = User::where('actif', true)->get();
+        $users = User::where('is_active', true)->where('notifs_email', true)->get();
         $count = 0;
 
         foreach ($users as $user) {

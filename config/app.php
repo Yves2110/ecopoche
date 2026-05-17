@@ -15,6 +15,8 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+    'cron_token' => env('CRON_TOKEN'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment
