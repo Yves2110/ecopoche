@@ -1,5 +1,7 @@
 <?php
 
+require __DIR__.'/force-dotenv-db.php';
+
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -23,8 +25,13 @@ return Application::configure(basePath: dirname(__DIR__))
         }
 
         $middleware->alias([
-            'role'   => \App\Http\Middleware\CheckRole::class,
-            'active' => \App\Http\Middleware\CheckActive::class,
+            'role'             => \App\Http\Middleware\CheckRole::class,
+            'active'           => \App\Http\Middleware\CheckActive::class,
+            'password.changed' => \App\Http\Middleware\EnsurePasswordIsChanged::class,
+        ]);
+
+        $middleware->appendToGroup('web', [
+            \App\Http\Middleware\EnsurePasswordIsChanged::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

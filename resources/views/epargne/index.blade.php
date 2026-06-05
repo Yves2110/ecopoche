@@ -1,4 +1,5 @@
-<x-layouts.app title="Épargne" pageTitle="Épargne" pageSubtitle="Objectifs & suivi mensuel">
+﻿<x-layouts.app title="Épargne" pageTitle="Épargne" pageSubtitle="Objectifs & suivi par période"
+    monthSelector :period-mois="$mois" :period-annee="$annee" :periode-label="$periodeLabel" period-route="epargne.index">
 
 @php
     $objMois  = $epargne ? (int)$epargne->objectif : 0;
@@ -271,14 +272,24 @@
 {{-- ===== ONGLET 2 : SUIVI MENSUEL ===== --}}
 <div x-show="onglet==='suivi'" x-transition>
 
-    {{-- KPIs suivi mois courant --}}
+    <x-period-banners
+        :est-periode-passee="$estPeriodePassee"
+        :est-periode-future="$estPeriodeFuture"
+        :est-periode-courante="$estPeriodeCourante"
+        :periode-label="$periodeLabel"
+        context="epargne" />
+
+    <x-period-nav class="mb-5" :mois="$mois" :annee="$annee" :periode-label="$periodeLabel"
+                  route-name="epargne.index" :route-params="['onglet' => 'suivi']" />
+
+    {{-- KPIs suivi période --}}
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
         <div class="kpi-card col-span-2 lg:col-span-1">
             <div class="flex justify-between items-start mb-3">
                 <span class="material-symbols-outlined text-[#6B7280]">savings</span>
-                <span class="badge-blue">{{ \Carbon\Carbon::createFromDate($annee, $mois, 1)->translatedFormat('M Y') }}</span>
+                <span class="badge-blue">{{ $periodeLabel }}</span>
             </div>
-            <p class="kpi-label">Objectif du mois</p>
+            <p class="kpi-label">Objectif de la période</p>
             <p class="kpi-value">{{ number_format($objMois, 0, ',', "\u{00A0}") }} FCFA</p>
         </div>
         <div class="kpi-card {{ $reelMois >= $objMois && $objMois > 0 ? 'border-[#006c49]/30 bg-[#006c49]/5' : '' }}">
@@ -305,7 +316,7 @@
             <div class="flex justify-between items-start mb-3">
                 <span class="material-symbols-outlined text-[#6B7280]">timeline</span>
                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full {{ $tauxRealisation >= 80 ? 'bg-[#d1fae5] text-[#065f46]' : ($tauxRealisation >= 50 ? 'bg-[#fef3c7] text-[#92400e]' : 'bg-[#fee2e2] text-[#991b1b]') }}">
-                    12 mois
+                    12 périodes
                 </span>
             </div>
             <p class="kpi-label">Taux réalisation</p>
@@ -317,24 +328,10 @@
 
         {{-- Formulaire saisie mensuelle --}}
         <div class="col-span-12 lg:col-span-4 space-y-4">
-            <div class="flex items-center justify-between soft-card px-4 py-3">
-                <a href="{{ route('epargne.index', ['mois'=>$mois==1?12:$mois-1,'annee'=>$mois==1?$annee-1:$annee,'onglet'=>'suivi']) }}"
-                   class="p-1.5 rounded-lg border border-[#E5E7EB] hover:bg-gray-50">
-                    <span class="material-symbols-outlined text-[#002452]">chevron_left</span>
-                </a>
-                <span class="text-sm font-bold text-[#1F2937]">
-                    {{ \Carbon\Carbon::createFromDate($annee, $mois, 1)->translatedFormat('F Y') }}
-                </span>
-                <a href="{{ route('epargne.index', ['mois'=>$mois==12?1:$mois+1,'annee'=>$mois==12?$annee+1:$annee,'onglet'=>'suivi']) }}"
-                   class="p-1.5 rounded-lg border border-[#E5E7EB] hover:bg-gray-50">
-                    <span class="material-symbols-outlined text-[#002452]">chevron_right</span>
-                </a>
-            </div>
-
             <div class="soft-card p-5">
                 <h3 class="font-headline text-base font-semibold text-[#1F2937] mb-4 flex items-center gap-2">
                     <span class="material-symbols-outlined text-[#002452]">edit_note</span>
-                    Saisir l'épargne du mois
+                    Saisir l'épargne — {{ $periodeLabel }}
                 </h3>
 
                 <form method="POST" action="{{ route('epargne.mensuel.update', $budget) }}" class="space-y-4"
@@ -366,7 +363,7 @@
                         <div class="flex justify-between text-xs">
                             <span class="text-[#6B7280] font-semibold">Progression</span>
                             <span class="font-bold" :class="reel >= objectif ? 'text-[#006c49]' : 'text-[#F59E0B]'"
-                                  x-text="objectif > 0 ? Math.min(100, Math.round(reel/objectif*100)) + '%' : '—'"></span>
+                                  x-text="objectif > 0 ? Math.min(100, Math.round(reel/objectif*100)) + '%' : '-'"></span>
                         </div>
                         <div class="h-2 bg-[#E5E7EB] rounded-full overflow-hidden">
                             <div class="h-full rounded-full transition-all"
@@ -389,7 +386,8 @@
                                   class="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-[#002452] bg-white resize-none">{{ $epargne?->analyse }}</textarea>
                     </div>
 
-                    <button type="submit" class="btn-primary w-full flex items-center justify-center gap-2">
+                    <button type="submit" class="btn-primary w-full flex items-center justify-center gap-2"
+                            @if($estPeriodePassee ?? false) disabled @endif>
                         <span class="material-symbols-outlined text-base">save</span>
                         Enregistrer
                     </button>
@@ -401,7 +399,7 @@
         <div class="col-span-12 lg:col-span-8 space-y-4">
             <div class="soft-card p-5">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="font-headline text-base font-semibold text-[#1F2937]">Historique 12 mois</h3>
+                    <h3 class="font-headline text-base font-semibold text-[#1F2937]">Historique 12 périodes</h3>
                     <div class="flex items-center gap-4 text-xs text-[#6B7280]">
                         <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-[#002452]/20 inline-block"></span>Objectif</span>
                         <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-[#006c49] inline-block"></span>Réel</span>
@@ -436,13 +434,13 @@
                                     @if($h['actif'])<span class="badge-blue ml-1">Actif</span>@endif
                                 </td>
                                 <td class="px-5 py-3 text-right text-[#6B7280]">
-                                    {{ $h['objectif'] > 0 ? number_format($h['objectif'], 0, ',', "\u{00A0}") : '—' }}
+                                    {{ $h['objectif'] > 0 ? number_format($h['objectif'], 0, ',', "\u{00A0}") : '-' }}
                                 </td>
                                 <td class="px-5 py-3 text-right font-semibold {{ $h['reel'] >= $h['objectif'] && $h['objectif'] > 0 ? 'text-[#006c49]' : 'text-[#1F2937]' }}">
-                                    {{ $h['reel'] > 0 ? number_format($h['reel'], 0, ',', "\u{00A0}") : '—' }}
+                                    {{ $h['reel'] > 0 ? number_format($h['reel'], 0, ',', "\u{00A0}") : '-' }}
                                 </td>
                                 <td class="px-5 py-3 text-right {{ $h['deficit'] > 0 ? 'text-[#EF4444] font-semibold' : 'text-[#6B7280]' }}">
-                                    {{ $h['deficit'] > 0 ? '− '.number_format($h['deficit'], 0, ',', "\u{00A0}") : '—' }}
+                                    {{ $h['deficit'] > 0 ? '− '.number_format($h['deficit'], 0, ',', "\u{00A0}") : '-' }}
                                 </td>
                                 <td class="px-5 py-3">
                                     @if($h['objectif'] > 0)
@@ -453,7 +451,7 @@
                                         </div>
                                         <span class="text-xs font-bold text-[#6B7280] w-8 text-right">{{ $hPct }}%</span>
                                     </div>
-                                    @else <span class="text-xs text-[#6B7280]">—</span> @endif
+                                    @else <span class="text-xs text-[#6B7280]">-</span> @endif
                                 </td>
                             </tr>
                             @endforeach

@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Réinitialisation de mot de passe — EcoPoche</title>
+    <title>Réinitialisation de mot de passe - EcoPoche</title>
     <style>
         body { font-family: 'Inter', Arial, sans-serif; background: #F8FAFC; margin: 0; padding: 0; }
         .container { max-width: 480px; margin: 32px auto; background: #fff; border-radius: 16px; border: 1px solid #E5E7EB; overflow: hidden; }
@@ -25,7 +25,7 @@
         <p>Réinitialisation de mot de passe</p>
     </div>
     <div class="body">
-        <p>Bonjour <strong>{{ $user->name }}</strong>,</p>
+        <p>Bonjour <strong>{{ $user->full_name }}</strong>,</p>
         <p>Nous avons reçu une demande de réinitialisation du mot de passe associé à votre compte EcoPoche.</p>
         <p>Cliquez sur le bouton ci-dessous pour définir un nouveau mot de passe. Ce lien est valable <strong>60 minutes</strong>.</p>
 

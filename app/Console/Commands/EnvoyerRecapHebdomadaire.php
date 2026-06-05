@@ -4,7 +4,9 @@ namespace App\Console\Commands;
 
 use App\Mail\RecapHebdomadaire;
 use App\Models\Budget;
+use App\Models\Revenu;
 use App\Models\User;
+use App\Services\BudgetPeriodService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Mail;
 
@@ -15,22 +17,20 @@ class EnvoyerRecapHebdomadaire extends Command
 
     public function handle(): void
     {
-        $mois  = now()->month;
-        $annee = now()->year;
-
         $users = User::where('is_active', true)->where('notifs_email', true)->get();
         $count = 0;
 
         foreach ($users as $user) {
+            $periode = BudgetPeriodService::resolvePeriode($user);
             $budget = Budget::where('user_id', $user->id)
-                ->where('mois', $mois)
-                ->where('annee', $annee)
+                ->where('mois', $periode['mois'])
+                ->where('annee', $periode['annee'])
                 ->first();
 
             if (!$budget) continue;
 
             $revenus         = $budget->revenus()->get();
-            $totalDepensable = (float) $revenus->where('quota_applique', true)->sum('montant_quota');
+            $totalDepensable = Revenu::sumDepensable($revenus);
             $salaire         = (float) $budget->salaire_fixe;
             $epargneSalaire  = $salaire * (($user->epargne_salaire_pct ?? 0) / 100);
             $budgetTotal     = $salaire - $epargneSalaire + $totalDepensable;

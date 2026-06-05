@@ -2,31 +2,33 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesBudgetPeriod;
 use App\Models\Budget;
 use App\Models\Depense;
 use App\Models\Epargne;
 use App\Models\ObjectifEpargne;
+use App\Models\Revenu;
 use App\Models\User;
+use App\Services\AlerteService;
+use App\Services\BudgetPeriodService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller
 {
+    use ResolvesBudgetPeriod;
+
     public function index(Request $request)
     {
-        $mois  = (int) $request->get('mois',  now()->month);
-        $annee = (int) $request->get('annee', now()->year);
-
-        // Bornes : pas de futur au-delà du mois courant
-        $today = now();
-        if ($annee > $today->year || ($annee == $today->year && $mois > $today->month)) {
-            $mois  = $today->month;
-            $annee = $today->year;
-        }
-
         /** @var User $user */
-        $user  = Auth::user();
+        $user = Auth::user();
+
+        AlerteService::cloturerAlertesPeriodesExpirees($user);
+
+        ['mois' => $mois, 'annee' => $annee] = $this->resolveMoisAnnee($request, $user);
+        $periodeLabel = BudgetPeriodService::label($user, $mois, $annee);
+        $estPeriodeCourante = BudgetPeriodService::estPeriodeCourante($user, $mois, $annee);
 
         $budget = Budget::firstOrCreate(
             ['user_id' => $user->id, 'mois' => $mois, 'annee' => $annee],
@@ -34,8 +36,8 @@ class DashboardController extends Controller
         );
 
         $revenus = $budget->revenus()->get();
-        $totalDepensable = (float) $revenus->where('quota_applique', true)->sum('montant_quota'); // 30% utilisable
-        $totalReserve    = (float) $revenus->where('quota_applique', true)->sum('montant_dispo'); // 70% bloqué
+        $totalDepensable = Revenu::sumDepensable($revenus);
+        $totalReserve    = Revenu::sumReserve($revenus);
         $totalDepenses   = (float) $budget->depenses()->sum('montant');
 
         // Épargne du mois = part salaire fixe + solde réserve bonus
@@ -65,18 +67,26 @@ class DashboardController extends Controller
             default                                        => 'sain',
         };
 
-        // Flux journalier sur les 14 derniers jours
-        $debut14 = now()->subDays(13)->startOfDay();
+        [$debutPeriode, $finPeriode] = BudgetPeriodService::bornes($user, $mois, $annee);
+
+        // Flux journalier sur les 14 derniers jours de la période
+        $debut14 = $estPeriodeCourante
+            ? now()->subDays(13)->startOfDay()
+            : $finPeriode->copy()->subDays(13)->startOfDay();
+        if ($debut14->lt($debutPeriode)) {
+            $debut14 = $debutPeriode->copy();
+        }
         $depensesParJour = $budget->depenses()
-            ->where('date', '>=', $debut14)
+            ->whereBetween('date', [$debut14, $finPeriode])
             ->get()
             ->groupBy(fn($d) => $d->date->format('Y-m-d'))
             ->map(fn($items) => (int) $items->sum('montant'));
 
         $joursLabels = [];
         $joursData   = [];
+        $refFin = $estPeriodeCourante ? now() : $finPeriode;
         for ($i = 13; $i >= 0; $i--) {
-            $date = now()->subDays($i)->format('Y-m-d');
+            $date = $refFin->copy()->subDays($i)->format('Y-m-d');
             $joursLabels[] = Carbon::parse($date)->translatedFormat('d M');
             $joursData[]   = $depensesParJour[$date] ?? 0;
         }
@@ -102,10 +112,51 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        // Alertes actives
-        $alertes = $user->alertes()->whereNull('lu_at')->orderByDesc('created_at')->take(5)->get();
+        // Alertes actives (période affichée + dettes)
+        $alertes = $user->alertes()
+            ->whereNull('lu_at')
+            ->orderByDesc('created_at')
+            ->get()
+            ->filter(fn ($a) => AlerteService::alerteVisiblePourPeriode($a, $mois, $annee))
+            ->take(5)
+            ->values();
 
         $epargne_salaire_pct = (int) ($user->epargne_salaire_pct ?? 0);
+
+        // Stats Emprunts & Prêts (sommes des restants pour les opérations non soldées)
+        $dettesActives = $user->dettes()->where('statut', '!=', 'solde')->with('remboursements')->get();
+        $emprunts = $dettesActives->where('type', 'emprunt');
+        $prets    = $dettesActives->where('type', 'pret');
+        // Insights vs période précédente
+        $prec = BudgetPeriodService::periodePrecedente($mois, $annee);
+        $budgetPrec = Budget::where('user_id', $user->id)
+            ->where('mois', $prec['mois'])
+            ->where('annee', $prec['annee'])
+            ->first();
+        $depensesPrec = $budgetPrec ? (float) $budgetPrec->depenses()->sum('montant') : null;
+        $variationDepensesPct = ($depensesPrec && $depensesPrec > 0)
+            ? round((($totalDepenses - $depensesPrec) / $depensesPrec) * 100, 1)
+            : null;
+        $topCategorie = $parCategorie->first();
+        $joursEcoules = max(1, BudgetPeriodService::joursEcoules($user, $mois, $annee));
+        $joursMois    = max(1, BudgetPeriodService::joursTotal($user, $mois, $annee));
+        $projectionDepenses = $joursEcoules > 0
+            ? (int) round(($totalDepenses / $joursEcoules) * $joursMois)
+            : 0;
+
+        $dettesStats = [
+            'emprunts_restant' => (float) $emprunts->sum(fn($d) => $d->montant_restant),
+            'emprunts_count'   => $emprunts->count(),
+            'emprunts_top'     => $emprunts->sortByDesc(fn($d) => $d->montant_restant)->take(3)->map(fn($d) => [
+                'partie' => $d->partie, 'restant' => (int) $d->montant_restant,
+            ])->values()->toArray(),
+            'prets_restant'    => (float) $prets->sum(fn($d) => $d->montant_restant),
+            'prets_count'      => $prets->count(),
+            'prets_top'        => $prets->sortByDesc(fn($d) => $d->montant_restant)->take(3)->map(fn($d) => [
+                'partie' => $d->partie, 'restant' => (int) $d->montant_restant,
+            ])->values()->toArray(),
+            'retards'          => $dettesActives->where('statut', 'en_retard')->count(),
+        ];
 
         return view('dashboard', compact(
             'budget', 'revenus', 'user',
@@ -113,7 +164,9 @@ class DashboardController extends Controller
             'epargneSalaire', 'epargneNaturelle', 'objectifActif', 'epargne_salaire_pct',
             'revenuTotal', 'sante', 'joursLabels', 'joursData',
             'parCategorie', 'dernieresDepenses', 'alertes',
-            'mois', 'annee'
+            'dettesStats',
+            'variationDepensesPct', 'depensesPrec', 'topCategorie', 'projectionDepenses',
+            'mois', 'annee', 'periodeLabel', 'estPeriodeCourante',
         ));
     }
 }

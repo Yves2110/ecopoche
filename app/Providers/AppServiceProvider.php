@@ -44,5 +44,20 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('admin', function (Request $request) {
             return Limit::perMinute(30)->by(optional($request->user())->id ?: $request->ip());
         });
+
+        // Exports PDF/CSV : 10/minute par utilisateur
+        RateLimiter::for('exports', function (Request $request) {
+            return Limit::perMinute(10)->by(optional($request->user())->id ?: $request->ip());
+        });
+
+        // Import CSV dépenses : 5/minute par utilisateur
+        RateLimiter::for('imports', function (Request $request) {
+            return Limit::perMinute(5)->by(optional($request->user())->id ?: $request->ip());
+        });
+
+        // Endpoint cron : 60/minute par IP
+        RateLimiter::for('cron', function (Request $request) {
+            return Limit::perMinute(60)->by($request->ip());
+        });
     }
 }

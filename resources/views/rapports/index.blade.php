@@ -1,4 +1,4 @@
-<x-layouts.app title="Rapports" pageTitle="Rapports & Exports"
+﻿<x-layouts.app title="Rapports" pageTitle="Rapports & Exports"
     pageSubtitle="{{ \Carbon\Carbon::createFromDate($annee, $mois, 1)->translatedFormat('F Y') }}" monthSelector>
 
 @php
@@ -8,6 +8,14 @@
     $nextMois  = $mois == 12 ? 1 : $mois + 1;
     $nextAnnee = $mois == 12 ? $annee + 1 : $annee;
 @endphp
+
+<div class="mb-4 p-3 rounded-xl bg-[#F0F4FF] border border-[#E0E7FF] text-xs text-[#374151] flex flex-wrap items-start gap-2">
+    <span class="material-symbols-outlined text-[#002452] text-base">info</span>
+    <span>
+        <strong>Export CSV mensuel</strong> : même format que l'<strong>import CSV</strong> sur la page Dépenses (Date;Catégorie;Désignation;Montant;Imprévue).
+        Les <a href="{{ route('profil.recurrences.index') }}" class="text-[#002452] font-semibold hover:underline">récurrences</a> génèrent les opérations automatiquement chaque mois.
+    </span>
+</div>
 
 {{-- ===== TOOLBAR ===== --}}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
@@ -194,7 +202,7 @@
                 @php
                     $taux = $h['revenu'] > 0 ? round($h['depenses'] / $h['revenu'] * 100) : 0;
                     $sante = match(true) {
-                        $h['revenu'] == 0                         => ['label'=>'—',        'cls'=>'text-[#9CA3AF]'],
+                        $h['revenu'] == 0                         => ['label'=>'-',        'cls'=>'text-[#9CA3AF]'],
                         $h['solde'] < 0                           => ['label'=>'Dépassé',   'cls'=>'text-[#EF4444] font-bold'],
                         $taux >= 70                               => ['label'=>'Attention', 'cls'=>'text-[#F59E0B] font-semibold'],
                         default                                   => ['label'=>'Sain',      'cls'=>'text-[#006c49] font-semibold'],
@@ -206,16 +214,16 @@
                         @if($h['actif'])<span class="badge-blue ml-1">Actuel</span>@endif
                     </td>
                     <td class="px-5 py-3 text-right text-[#1F2937]">
-                        {{ $h['revenu'] > 0 ? number_format($h['revenu'], 0, ',', "\u{00A0}") : '—' }}
+                        {{ $h['revenu'] > 0 ? number_format($h['revenu'], 0, ',', "\u{00A0}") : '-' }}
                     </td>
                     <td class="px-5 py-3 text-right {{ $h['depenses'] > 0 ? 'text-[#EF4444]' : 'text-[#9CA3AF]' }}">
-                        {{ $h['depenses'] > 0 ? number_format($h['depenses'], 0, ',', "\u{00A0}") : '—' }}
+                        {{ $h['depenses'] > 0 ? number_format($h['depenses'], 0, ',', "\u{00A0}") : '-' }}
                     </td>
                     <td class="px-5 py-3 text-right font-semibold {{ $h['solde'] >= 0 ? 'text-[#006c49]' : 'text-[#EF4444]' }}">
-                        {{ $h['revenu'] > 0 ? (($h['solde'] >= 0 ? '+' : '') . number_format($h['solde'], 0, ',', "\u{00A0}")) : '—' }}
+                        {{ $h['revenu'] > 0 ? (($h['solde'] >= 0 ? '+' : '') . number_format($h['solde'], 0, ',', "\u{00A0}")) : '-' }}
                     </td>
                     <td class="px-5 py-3 text-right text-[#006c49] font-semibold">
-                        {{ $h['epargne'] > 0 ? number_format($h['epargne'], 0, ',', "\u{00A0}") : '—' }}
+                        {{ $h['epargne'] > 0 ? number_format($h['epargne'], 0, ',', "\u{00A0}") : '-' }}
                     </td>
                     <td class="px-5 py-3 text-center text-xs {{ $sante['cls'] }}">{{ $sante['label'] }}</td>
                 </tr>

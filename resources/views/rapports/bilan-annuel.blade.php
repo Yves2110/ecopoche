@@ -1,4 +1,4 @@
-<x-layouts.app title="Bilan annuel {{ $annee }}" pageTitle="Bilan Annuel {{ $annee }}"
+﻿<x-layouts.app title="Bilan annuel {{ $annee }}" pageTitle="Bilan Annuel {{ $annee }}"
     pageSubtitle="Récapitulatif complet de l'année {{ $annee }}">
 
 @php $periodeLabel = "Bilan annuel {$annee}"; @endphp
@@ -165,7 +165,7 @@
 {{-- ===== TABLEAU DÉTAIL ANNUEL ===== --}}
 <div class="soft-card overflow-hidden mb-20 lg:mb-0">
     <div class="px-5 py-4 border-b border-[#E5E7EB] bg-white flex items-center justify-between">
-        <h3 class="font-headline text-base font-semibold text-[#1F2937]">Détail mensuel — {{ $annee }}</h3>
+        <h3 class="font-headline text-base font-semibold text-[#1F2937]">Détail mensuel - {{ $annee }}</h3>
         <span class="badge-blue">12 mois</span>
     </div>
     <div class="overflow-x-auto">
@@ -186,7 +186,7 @@
                 @php
                     $taux = $h['revenu'] > 0 ? round($h['depenses'] / $h['revenu'] * 100) : 0;
                     $sante = match(true) {
-                        $h['revenu'] == 0 => ['label'=>'—',        'cls'=>'text-[#9CA3AF]'],
+                        $h['revenu'] == 0 => ['label'=>'-',        'cls'=>'text-[#9CA3AF]'],
                         $h['solde'] < 0   => ['label'=>'Dépassé',  'cls'=>'text-[#EF4444] font-bold'],
                         $taux >= 70        => ['label'=>'Attention','cls'=>'text-[#F59E0B] font-semibold'],
                         default            => ['label'=>'Sain',     'cls'=>'text-[#006c49] font-semibold'],
@@ -195,19 +195,19 @@
                 <tr class="hover:bg-gray-50">
                     <td class="px-5 py-3 font-semibold text-[#1F2937] whitespace-nowrap">{{ $h['label'] }}</td>
                     <td class="px-5 py-3 text-right text-[#1F2937]">
-                        {{ $h['revenu'] > 0 ? number_format($h['revenu'], 0, ',', "\u{00A0}") : '—' }}
+                        {{ $h['revenu'] > 0 ? number_format($h['revenu'], 0, ',', "\u{00A0}") : '-' }}
                     </td>
                     <td class="px-5 py-3 text-right {{ $h['depenses'] > 0 ? 'text-[#EF4444]' : 'text-[#9CA3AF]' }}">
-                        {{ $h['depenses'] > 0 ? number_format($h['depenses'], 0, ',', "\u{00A0}") : '—' }}
+                        {{ $h['depenses'] > 0 ? number_format($h['depenses'], 0, ',', "\u{00A0}") : '-' }}
                     </td>
                     <td class="px-5 py-3 text-right font-semibold {{ $h['solde'] >= 0 ? 'text-[#006c49]' : 'text-[#EF4444]' }}">
-                        {{ $h['revenu'] > 0 ? (($h['solde'] >= 0 ? '+' : '') . number_format($h['solde'], 0, ',', "\u{00A0}")) : '—' }}
+                        {{ $h['revenu'] > 0 ? (($h['solde'] >= 0 ? '+' : '') . number_format($h['solde'], 0, ',', "\u{00A0}")) : '-' }}
                     </td>
                     <td class="px-5 py-3 text-right text-[#006c49] font-semibold">
-                        {{ $h['epargne'] > 0 ? number_format($h['epargne'], 0, ',', "\u{00A0}") : '—' }}
+                        {{ $h['epargne'] > 0 ? number_format($h['epargne'], 0, ',', "\u{00A0}") : '-' }}
                     </td>
                     <td class="px-5 py-3 text-center text-xs text-[#6B7280]">
-                        {{ $h['revenu'] > 0 ? $taux . '%' : '—' }}
+                        {{ $h['revenu'] > 0 ? $taux . '%' : '-' }}
                     </td>
                     <td class="px-5 py-3 text-center text-xs {{ $sante['cls'] }}">{{ $sante['label'] }}</td>
                 </tr>
@@ -222,7 +222,7 @@
                         {{ number_format($totalRevenu - $totalDepenses, 0, ',', "\u{00A0}") }} FCFA
                     </td>
                     <td class="px-5 py-3 text-right text-[#006c49]">{{ number_format($totalEpargne, 0, ',', "\u{00A0}") }} FCFA</td>
-                    <td class="px-5 py-3 text-center text-[#6B7280]">—</td>
+                    <td class="px-5 py-3 text-center text-[#6B7280]">-</td>
                     <td class="px-5 py-3 text-center text-[#002452]">{{ $tauxEpargne }}%</td>
                 </tr>
             </tfoot>

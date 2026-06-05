@@ -20,11 +20,18 @@ class ReanalyserAlertes extends Command
 
         $this->info("Réanalyse des alertes pour {$mois}/{$annee}...");
 
-        // 1. Supprimer les alertes du mois (sauf info quota_applique qui sont historiques)
-        $deleted = Alerte::whereJsonContains('meta->mois', $mois)
-            ->whereJsonContains('meta->annee', $annee)
-            ->whereNotIn('type', ['quota_applique'])
-            ->delete();
+        // 1. Récupérer les IDs des alertes du mois (filtrage PHP - compatible MySQL sans JSON_CONTAINS)
+        $idsToDelete = Alerte::whereNotIn('type', ['quota_applique'])
+            ->get(['id', 'meta'])
+            ->filter(function ($a) use ($mois, $annee) {
+                $meta = is_array($a->meta) ? $a->meta : (json_decode($a->meta ?? '[]', true) ?: []);
+                return ($meta['mois'] ?? null) == $mois && ($meta['annee'] ?? null) == $annee;
+            })
+            ->pluck('id');
+
+        $deleted = $idsToDelete->isNotEmpty()
+            ? Alerte::whereIn('id', $idsToDelete)->delete()
+            : 0;
 
         $this->info("→ {$deleted} alerte(s) supprimée(s)");
 

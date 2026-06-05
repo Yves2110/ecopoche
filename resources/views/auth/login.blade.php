@@ -1,4 +1,4 @@
-<x-layouts.guest title="Connexion">
+﻿<x-layouts.guest title="Connexion">
 <div class="w-full max-w-md">
 
     {{-- Card principale --}}
@@ -61,27 +61,15 @@
                 </div>
             </div>
 
-            {{-- Mot de passe --}}
-            <div>
-                <label for="password" class="block text-sm font-semibold text-[#1F2937] mb-1.5">
-                    Mot de passe
-                </label>
-                <div class="relative" x-data="{ show: false }">
-                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#6B7280] text-lg">lock</span>
-                    <input
-                        id="password"
-                        name="password"
-                        :type="show ? 'text' : 'password'"
-                        required
-                        autocomplete="current-password"
-                        placeholder="••••••••"
-                        class="w-full pl-10 pr-10 py-2.5 border border-[#E5E7EB] rounded-lg text-sm text-[#1F2937] bg-white focus:outline-none focus:border-[#002452] focus:ring-2 focus:ring-[#002452]/10 transition-all {{ $errors->has('password') ? 'border-[#EF4444]' : '' }}"
-                    />
-                    <button type="button" @click="show = !show" class="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7280] hover:text-[#002452] transition-colors">
-                        <span class="material-symbols-outlined text-lg" x-text="show ? 'visibility_off' : 'visibility'">visibility</span>
-                    </button>
-                </div>
-            </div>
+            <x-password-input
+                name="password"
+                label="Mot de passe"
+                placeholder="••••••••"
+                :required="true"
+                autocomplete="current-password"
+                :icon="true"
+                labelClass="block text-sm font-semibold text-[#1F2937] mb-1.5"
+            />
 
             {{-- Remember + Forgot --}}
             <div class="flex items-center justify-between">
@@ -103,7 +91,7 @@
     </div>
 
     <p class="text-center text-xs text-[#6B7280] mt-6">
-        EcoPoche &copy; {{ date('Y') }} — Votre budget, votre contrôle.
+        EcoPoche &copy; {{ date('Y') }} - Votre budget, votre contrôle.
     </p>
 </div>
 </x-layouts.guest>

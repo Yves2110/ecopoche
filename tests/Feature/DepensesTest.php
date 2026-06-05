@@ -87,6 +87,49 @@ class DepensesTest extends TestCase
         $this->assertDatabaseMissing('depenses', ['id' => $depense->id]);
     }
 
+    public function test_depense_can_be_updated(): void
+    {
+        $depense = $this->budget->depenses()->create([
+            'categorie_id' => $this->categorie->id,
+            'montant'      => 10000,
+            'date'         => now(),
+            'imprevue'     => false,
+        ]);
+
+        $this->put(route('depenses.update', $depense), [
+            'categorie_id' => $this->categorie->id,
+            'montant'      => 15000,
+            'date'         => now()->format('Y-m-d'),
+            'note'         => 'Modifié',
+            'imprevue'     => true,
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('depenses', [
+            'id'      => $depense->id,
+            'montant' => 15000,
+            'note'    => 'Modifié',
+        ]);
+    }
+
+    public function test_other_user_cannot_update_depense(): void
+    {
+        $other = User::factory()->create(['is_active' => true]);
+        $depense = $this->budget->depenses()->create([
+            'categorie_id' => $this->categorie->id,
+            'montant'      => 10000,
+            'date'         => now(),
+            'imprevue'     => false,
+        ]);
+
+        $this->actingAs($other)
+            ->put(route('depenses.update', $depense), [
+                'categorie_id' => $this->categorie->id,
+                'montant'      => 99999,
+                'date'         => now()->format('Y-m-d'),
+            ])
+            ->assertStatus(403);
+    }
+
     public function test_other_user_cannot_delete_depense(): void
     {
         $other = User::factory()->create(['is_active' => true]);
@@ -113,6 +156,25 @@ class DepensesTest extends TestCase
         $this->assertDatabaseHas('categories', [
             'user_id' => $this->user->id,
             'nom'     => 'Transport',
+        ]);
+    }
+
+    public function test_can_import_depenses_csv(): void
+    {
+        $date = now()->format('d/m/Y');
+        $csv = "Date;Catégorie;Désignation;Montant (FCFA);Imprévue\r\n{$date};Alimentation;Marché;12000;Non\r\n";
+
+        $file = \Illuminate\Http\UploadedFile::fake()->createWithContent('depenses.csv', $csv);
+
+        $this->post(route('depenses.import.csv'), [
+            'csv'   => $file,
+            'mois'  => now()->month,
+            'annee' => now()->year,
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('depenses', [
+            'budget_id' => $this->budget->id,
+            'montant'   => 12000,
         ]);
     }
 }

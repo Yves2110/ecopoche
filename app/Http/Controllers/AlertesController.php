@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Alerte;
 use App\Services\AlerteService;
+use App\Services\BudgetPeriodService;
 use App\Models\Budget;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -12,6 +13,9 @@ class AlertesController extends Controller
 {
     public function index(Request $request)
     {
+        $user = Auth::user();
+        AlerteService::cloturerAlertesPeriodesExpirees($user);
+
         $filtre = $request->get('filtre', 'toutes');
 
         $query = Alerte::where('user_id', Auth::id())
@@ -25,9 +29,11 @@ class AlertesController extends Controller
 
         $alertes = $query->paginate(20);
 
-        $nonLues = Alerte::where('user_id', Auth::id())->whereNull('lu_at')->count();
+        $courant = BudgetPeriodService::resolvePeriode($user);
+        $nonLues = AlerteService::compterNonLues($user);
+        $periodeLabel = BudgetPeriodService::label($user, $courant['mois'], $courant['annee']);
 
-        return view('alertes.index', compact('alertes', 'filtre', 'nonLues'));
+        return view('alertes.index', compact('alertes', 'filtre', 'nonLues', 'periodeLabel'));
     }
 
     public function marquerLue(Alerte $alerte)
@@ -64,7 +70,7 @@ class AlertesController extends Controller
     public function compteur()
     {
         return response()->json([
-            'count' => Alerte::where('user_id', Auth::id())->whereNull('lu_at')->count(),
+            'count' => AlerteService::compterNonLues(Auth::user()),
         ]);
     }
 
@@ -72,8 +78,9 @@ class AlertesController extends Controller
     public function analyser()
     {
         $user = Auth::user();
+        $periode = BudgetPeriodService::resolvePeriode($user);
         $budget = Budget::firstOrCreate(
-            ['user_id' => $user->id, 'mois' => now()->month, 'annee' => now()->year],
+            ['user_id' => $user->id, 'mois' => $periode['mois'], 'annee' => $periode['annee']],
             ['salaire_fixe' => 0, 'solde_charges' => 0, 'epargne_objectif' => 0]
         );
         AlerteService::analyserBudget($user, $budget);

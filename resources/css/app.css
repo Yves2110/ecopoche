@@ -146,3 +146,20 @@
         transition: width 0.4s ease;
     }
 }
+
+/* Modal plein écran (ex. remboursement dettes) : assombrir la page derrière.
+   Pas de overflow:hidden sur body — cela bloque le sélecteur de date natif (Chrome/Edge). */
+body.ecopoche-modal-open {
+    overscroll-behavior: none;
+    touch-action: none;
+}
+body.ecopoche-modal-open #ecopoche-main,
+body.ecopoche-modal-open header {
+    filter: brightness(0.45) saturate(0.85);
+    pointer-events: none;
+    user-select: none;
+}
+body.ecopoche-modal-open aside {
+    filter: brightness(0.55);
+    pointer-events: none;
+}

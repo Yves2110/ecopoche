@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" x-data="{ sidebarOpen: false }" class="light">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="csrf-token" content="{{ csrf_token() }}" />
-    <title>{{ $title ?? 'EcoPoche' }} — Gestion Budgétaire</title>
+    <title>{{ $title ?? 'EcoPoche' }} - Gestion Budgétaire</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -67,6 +67,12 @@
             <span>Épargne</span>
         </a>
 
+        <a href="{{ route('dettes.index') }}"
+           class="sidebar-item {{ request()->routeIs('dettes.*') ? 'sidebar-item-active' : '' }}">
+            <span class="material-symbols-outlined text-xl">handshake</span>
+            <span>Emprunts &amp; Prêts</span>
+        </a>
+
         <a href="{{ route('alertes.index') }}"
            class="sidebar-item {{ request()->routeIs('alertes.*') ? 'sidebar-item-active' : '' }}">
             <span class="material-symbols-outlined text-xl">notifications</span>
@@ -81,13 +87,21 @@
             <span>Rapports</span>
         </a>
 
-        @if(auth()->user()?->role === 'super_admin' || auth()->user()?->role === 'admin')
+        @if(auth()->user()?->isAdmin())
         <p class="text-[9px] font-bold uppercase tracking-widest text-white/30 px-3 mt-4 mb-2">Administration</p>
+        @if(auth()->user()->isSuperAdmin())
         <a href="{{ route('admin.index') }}"
            class="sidebar-item {{ request()->routeIs('admin.*') ? 'sidebar-item-active' : '' }}">
             <span class="material-symbols-outlined text-xl">admin_panel_settings</span>
             <span>Administration</span>
         </a>
+        @else
+        <div class="sidebar-item opacity-40 cursor-not-allowed pointer-events-none select-none"
+             title="Réservé à l'administrateur du site">
+            <span class="material-symbols-outlined text-xl">lock</span>
+            <span>Administration</span>
+        </div>
+        @endif
         @endif
     </nav>
 
@@ -170,7 +184,7 @@
             {{-- User --}}
             <div class="flex items-center gap-2 pl-3 border-l border-[#E5E7EB] ml-1">
                 <div class="hidden sm:block text-right">
-                    <p class="text-sm font-semibold text-[#1F2937] leading-tight">{{ auth()->user()?->name ?? 'Utilisateur' }}</p>
+                    <p class="text-sm font-semibold text-[#1F2937] leading-tight">{{ auth()->user()?->full_name ?? 'Utilisateur' }}</p>
                     <p class="text-[10px] text-[#6B7280] uppercase font-medium tracking-wide">
                         {{ match(auth()->user()?->role) {
                             'super_admin' => 'Super Admin',
@@ -180,7 +194,7 @@
                     </p>
                 </div>
                 <div class="w-8 h-8 rounded-full bg-[#002452] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                    {{ strtoupper(substr(auth()->user()?->name ?? 'U', 0, 1)) }}
+                    {{ strtoupper(substr(auth()->user()?->prenom ?: auth()->user()?->name ?? 'U', 0, 1)) }}
                 </div>
             </div>
         </div>
@@ -194,7 +208,7 @@
         <div class="flex items-center justify-between bg-[#D97706] text-white text-sm px-4 py-2.5 rounded-xl mb-4 border border-[#b45309]">
             <span class="flex items-center gap-2 font-medium">
                 <span class="material-symbols-outlined text-base">switch_account</span>
-                Mode accès — compte de <strong>{{ auth()->user()->name }}</strong>
+                Mode accès - compte de <strong>{{ auth()->user()->full_name }}</strong>
                 <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">{{ auth()->user()->email }}</span>
             </span>
             <form method="POST" action="{{ route('admin.stop_impersonner') }}">
@@ -245,5 +259,6 @@
 </div>
 
 @livewireScripts
+<x-onboarding />
 </body>
 </html>

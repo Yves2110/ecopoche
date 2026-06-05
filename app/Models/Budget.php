@@ -61,8 +61,6 @@ class Budget extends Model
 
     public function getSoldeReserveAttribute(): float
     {
-        return (float) $this->revenus()
-            ->where('quota_applique', true)
-            ->sum('montant_quota');
+        return Revenu::sumReserve($this->revenus()->get());
     }
 }

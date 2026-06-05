@@ -5,12 +5,13 @@ namespace App\Mail;
 use App\Models\Budget;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class RecapHebdomadaire extends Mailable
+class RecapHebdomadaire extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 

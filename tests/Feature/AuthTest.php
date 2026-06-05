@@ -56,6 +56,12 @@ class AuthTest extends TestCase
         $response->assertRedirect(route('login'));
     }
 
+    public function test_must_change_password_redirects_to_profil(): void
+    {
+        $user = $this->makeUser(['must_change_password' => true]);
+        $this->actingAs($user)->get(route('dashboard'))->assertRedirect(route('profil.index'));
+    }
+
     public function test_unauthenticated_user_redirected_to_login(): void
     {
         $this->get('/dashboard')->assertRedirect(route('login'));

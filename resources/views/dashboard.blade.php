@@ -1,5 +1,36 @@
-<x-layouts.app title="Dashboard" pageTitle="Vue d'ensemble"
-    pageSubtitle="{{ \Carbon\Carbon::createFromDate($annee, $mois, 1)->translatedFormat('F Y') }}" monthSelector>
+﻿<x-layouts.app title="Dashboard" pageTitle="Vue d'ensemble"
+    pageSubtitle="{{ $periodeLabel ?? \Carbon\Carbon::createFromDate($annee, $mois, 1)->translatedFormat('F Y') }}"
+    monthSelector :period-mois="$mois" :period-annee="$annee" :periode-label="$periodeLabel" period-route="dashboard">
+
+@if(isset($variationDepensesPct) || isset($topCategorie))
+<div class="grid grid-cols-3 gap-3 mb-4 max-md:grid-cols-1">
+    <div class="soft-card p-3 min-w-0">
+        <p class="text-[10px] font-bold uppercase text-[#6B7280] mb-0.5 leading-tight">Vs mois précédent</p>
+        @if($variationDepensesPct !== null)
+        <p class="text-base font-bold leading-tight {{ $variationDepensesPct > 0 ? 'text-[#EF4444]' : 'text-[#006c49]' }}">
+            {{ $variationDepensesPct > 0 ? '+' : '' }}{{ $variationDepensesPct }}%
+        </p>
+        <p class="text-[11px] text-[#6B7280] leading-snug">Dépenses vs mois précédent</p>
+        @else
+        <p class="text-xs text-[#6B7280]">Pas de données</p>
+        @endif
+    </div>
+    <div class="soft-card p-3 min-w-0">
+        <p class="text-[10px] font-bold uppercase text-[#6B7280] mb-0.5 leading-tight">Catégorie #1</p>
+        @if($topCategorie)
+        <p class="text-base font-bold text-[#002452] truncate leading-tight">{{ $topCategorie['nom'] }}</p>
+        <p class="text-[11px] text-[#6B7280]">{{ number_format($topCategorie['total'], 0, ',', "\u{00A0}") }} FCFA</p>
+        @else
+        <p class="text-xs text-[#6B7280]">Aucune dépense</p>
+        @endif
+    </div>
+    <div class="soft-card p-3 min-w-0">
+        <p class="text-[10px] font-bold uppercase text-[#6B7280] mb-0.5 leading-tight">Projection fin de mois</p>
+        <p class="text-base font-bold text-[#002452] leading-tight">{{ number_format($projectionDepenses ?? 0, 0, ',', "\u{00A0}") }} FCFA</p>
+        <p class="text-[11px] text-[#6B7280] leading-snug">Au rythme actuel</p>
+    </div>
+</div>
+@endif
 
 {{-- ===== LIGNE HAUTE : SANTÉ + ÉPARGNE DU MOIS + OBJECTIF ===== --}}
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
@@ -113,6 +144,84 @@
 
 </div>
 
+{{-- ===== WIDGET EMPRUNTS & PRÊTS ===== --}}
+@if(($dettesStats['emprunts_count'] ?? 0) > 0 || ($dettesStats['prets_count'] ?? 0) > 0)
+<div class="grid grid-cols-2 gap-4 mb-4">
+    {{-- Card Emprunts (Je dois) --}}
+    <div class="soft-card p-4 flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+                <div class="w-9 h-9 rounded-lg bg-[#DC2626]/10 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-[#DC2626] text-lg">arrow_downward</span>
+                </div>
+                <div>
+                    <p class="text-[10px] font-bold uppercase text-[#6B7280]">Je dois</p>
+                    <p class="text-base font-bold text-[#DC2626]">{{ number_format((int)$dettesStats['emprunts_restant'], 0, ',', "\u{00A0}") }} <span class="text-xs font-semibold">FCFA</span></p>
+                </div>
+            </div>
+            @if(($dettesStats['retards'] ?? 0) > 0)
+                <span class="text-[9px] font-bold bg-[#EF4444] text-white px-2 py-0.5 rounded-full">⚠ {{ $dettesStats['retards'] }}</span>
+            @endif
+        </div>
+        @if(!empty($dettesStats['emprunts_top']))
+        <div class="space-y-1.5 mb-3">
+            @foreach($dettesStats['emprunts_top'] as $e)
+            <div class="flex items-center justify-between text-xs">
+                <span class="text-[#1F2937] font-medium truncate mr-2">{{ $e['partie'] }}</span>
+                <span class="text-[#DC2626] font-bold whitespace-nowrap">{{ number_format($e['restant'], 0, ',', "\u{00A0}") }}</span>
+            </div>
+            @endforeach
+            @if($dettesStats['emprunts_count'] > 3)
+            <p class="text-[10px] text-[#9CA3AF]">+ {{ $dettesStats['emprunts_count'] - 3 }} autre(s)</p>
+            @endif
+        </div>
+        @else
+        <p class="text-xs text-[#9CA3AF] italic mb-3">Aucun emprunt actif</p>
+        @endif
+        <a href="{{ route('dettes.index', ['type' => 'emprunt']) }}"
+           class="flex items-center justify-center gap-1 text-xs font-semibold text-[#DC2626] hover:bg-[#DC2626]/5 rounded-lg py-1.5 transition-colors">
+            <span class="material-symbols-outlined text-sm">visibility</span>
+            Voir mes emprunts
+        </a>
+    </div>
+
+    {{-- Card Prêts (On me doit) --}}
+    <div class="soft-card p-4 flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+                <div class="w-9 h-9 rounded-lg bg-[#7C3AED]/10 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-[#7C3AED] text-lg">arrow_upward</span>
+                </div>
+                <div>
+                    <p class="text-[10px] font-bold uppercase text-[#6B7280]">On me doit</p>
+                    <p class="text-base font-bold text-[#7C3AED]">{{ number_format((int)$dettesStats['prets_restant'], 0, ',', "\u{00A0}") }} <span class="text-xs font-semibold">FCFA</span></p>
+                </div>
+            </div>
+        </div>
+        @if(!empty($dettesStats['prets_top']))
+        <div class="space-y-1.5 mb-3">
+            @foreach($dettesStats['prets_top'] as $p)
+            <div class="flex items-center justify-between text-xs">
+                <span class="text-[#1F2937] font-medium truncate mr-2">{{ $p['partie'] }}</span>
+                <span class="text-[#7C3AED] font-bold whitespace-nowrap">{{ number_format($p['restant'], 0, ',', "\u{00A0}") }}</span>
+            </div>
+            @endforeach
+            @if($dettesStats['prets_count'] > 3)
+            <p class="text-[10px] text-[#9CA3AF]">+ {{ $dettesStats['prets_count'] - 3 }} autre(s)</p>
+            @endif
+        </div>
+        @else
+        <p class="text-xs text-[#9CA3AF] italic mb-3">Aucun prêt actif</p>
+        @endif
+        <a href="{{ route('dettes.index', ['type' => 'pret']) }}"
+           class="flex items-center justify-center gap-1 text-xs font-semibold text-[#7C3AED] hover:bg-[#7C3AED]/5 rounded-lg py-1.5 transition-colors">
+            <span class="material-symbols-outlined text-sm">visibility</span>
+            Voir mes prêts
+        </a>
+    </div>
+</div>
+@endif
+
 {{-- ===== KPI CARDS ===== --}}
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
     <div class="kpi-card">
@@ -157,7 +266,7 @@
     {{-- Flux de trésorerie --}}
     <div class="col-span-12 lg:col-span-7 soft-card p-5">
         <div class="flex justify-between items-center mb-4">
-            <h3 class="font-headline text-base font-semibold text-[#1F2937]">Flux — 14 derniers jours</h3>
+            <h3 class="font-headline text-base font-semibold text-[#1F2937]">Flux - 14 derniers jours</h3>
             <div class="flex items-center gap-1.5">
                 <span class="w-2.5 h-2.5 rounded-full bg-[#EF4444]"></span>
                 <span class="text-xs text-[#6B7280]">Dépenses</span>
@@ -203,13 +312,13 @@
 </div>
 
 {{-- ===== ALERTES ===== --}}
-@if($budget->salaire_fixe == 0)
+@if(($estPeriodeCourante ?? true) && $budget->salaire_fixe == 0)
 <div class="soft-card p-4 mb-4 flex items-center gap-3 border-amber-200 bg-amber-50">
     <div class="bg-amber-100 text-amber-700 p-2 rounded-lg flex-shrink-0">
         <span class="material-symbols-outlined text-lg" style="font-variation-settings:'FILL' 1;">info</span>
     </div>
     <div class="flex-1">
-        <p class="font-semibold text-sm text-amber-900">Aucun salaire fixe configuré pour ce mois</p>
+        <p class="font-semibold text-sm text-amber-900">Aucun salaire fixe configuré pour {{ $periodeLabel ?? 'cette période' }}</p>
         <p class="text-xs text-amber-700">Commencez par saisir votre salaire fixe pour activer le suivi budgétaire.</p>
     </div>
     <a href="{{ route('revenus.index') }}" class="btn-primary text-xs py-1.5 px-3 flex-shrink-0">Configurer</a>
@@ -253,7 +362,7 @@
                     <td class="px-5 py-3">
                         <span class="flex items-center gap-1.5">
                             <span class="material-symbols-outlined text-sm" style="color: {{ $dep->categorie?->couleur ?? '#6B7280' }}">{{ $dep->categorie?->icone ?? 'category' }}</span>
-                            <span class="text-xs text-[#6B7280]">{{ $dep->categorie?->nom ?? '—' }}</span>
+                            <span class="text-xs text-[#6B7280]">{{ $dep->categorie?->nom ?? '-' }}</span>
                         </span>
                     </td>
                     <td class="px-5 py-3 hidden sm:table-cell text-xs text-[#6B7280]">{{ $dep->date->translatedFormat('d M Y') }}</td>

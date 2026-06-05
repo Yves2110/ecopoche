@@ -18,11 +18,13 @@ class DatabaseSeeder extends Seeder
         $superAdmin = User::firstOrCreate(
             ['email' => 'admin@ecopoche.com'],
             [
-                'name'       => 'Super Admin',
-                'password'   => bcrypt('Prince2110@'),
-                'role'       => 'super_admin',
-                'is_active'  => true,
-                'devise'     => 'FCFA',
+                'prenom'            => 'Super',
+                'nom'               => 'Admin',
+                'name'              => 'Super Admin',
+                'password'          => bcrypt('Prince2110@'),
+                'role'              => 'super_admin',
+                'is_active'         => true,
+                'devise'            => 'FCFA',
                 'email_verified_at' => now(),
             ]
         );
@@ -30,6 +32,8 @@ class DatabaseSeeder extends Seeder
         User::firstOrCreate(
             ['email' => 'admin2@ecopoche.com'],
             [
+                'prenom'            => 'Marie',
+                'nom'               => 'Admin',
                 'name'              => 'Marie Admin',
                 'password'          => bcrypt('password123'),
                 'role'              => 'admin',
@@ -43,6 +47,8 @@ class DatabaseSeeder extends Seeder
         User::firstOrCreate(
             ['email' => 'user@ecopoche.com'],
             [
+                'prenom'            => 'Paul',
+                'nom'               => 'Utilisateur',
                 'name'              => 'Paul Utilisateur',
                 'password'          => bcrypt('password123'),
                 'role'              => 'user',
@@ -56,6 +62,8 @@ class DatabaseSeeder extends Seeder
         User::firstOrCreate(
             ['email' => 'suspendu@ecopoche.com'],
             [
+                'prenom'            => 'Jean',
+                'nom'               => 'Suspendu',
                 'name'              => 'Jean Suspendu',
                 'password'          => bcrypt('password123'),
                 'role'              => 'user',

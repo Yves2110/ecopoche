@@ -9,7 +9,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Revenu extends Model
 {
     protected $fillable = [
-        'budget_id', 'type', 'montant_brut',
+        'budget_id', 'dette_id', 'remboursement_id',
+        'type', 'montant_brut',
         'montant_quota', 'montant_dispo',
         'date', 'description', 'quota_applique',
     ];
@@ -32,9 +33,53 @@ class Revenu extends Model
         return $this->hasOne(QuotaLog::class);
     }
 
+    /**
+     * Part utilisable immédiatement (solde dépensable, dépenses).
+     * - Avec quota 30/70 : montant_quota
+     * - Sans quota (ex. prêt/emprunt lié) : 100 % dans montant_dispo
+     */
+    public function montantDepensable(): float
+    {
+        return $this->quota_applique
+            ? (float) $this->montant_quota
+            : (float) $this->montant_dispo;
+    }
+
+    /** Part en réserve bonus (70 %), 0 si pas de quota. */
+    public function montantReserve(): float
+    {
+        return $this->quota_applique ? (float) $this->montant_dispo : 0.0;
+    }
+
+    /** @param  iterable<Revenu>  $revenus */
+    public static function sumDepensable(iterable $revenus): float
+    {
+        $total = 0.0;
+        foreach ($revenus as $revenu) {
+            $total += $revenu->montantDepensable();
+        }
+
+        return $total;
+    }
+
+    /** @param  iterable<Revenu>  $revenus */
+    public static function sumReserve(iterable $revenus): float
+    {
+        $total = 0.0;
+        foreach ($revenus as $revenu) {
+            $total += $revenu->montantReserve();
+        }
+
+        return $total;
+    }
+
     protected static function booted(): void
     {
         static::creating(function (Revenu $revenu) {
+            if ($revenu->dette_id !== null || $revenu->remboursement_id !== null) {
+                return;
+            }
+
             if (in_array($revenu->type, ['bonus', 'extra'])) {
                 $tauxPct = (int) (auth()->user()?->quota_taux ?? 30);
                 $taux = $tauxPct / 100;

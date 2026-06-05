@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8"/>
@@ -36,8 +36,8 @@
 <table width="100%" style="background:#002452;margin-bottom:14px;" cellpadding="0" cellspacing="0">
     <tr>
         <td style="padding:14px 24px;">
-            <div style="font-size:16px;font-weight:700;color:#fff;">EcoPoche — Rapport Comparatif</div>
-            <div style="font-size:9px;color:#9ab0cc;margin-top:2px;">{{ $user->name }} &nbsp;·&nbsp; {{ $user->email }}</div>
+            <div style="font-size:16px;font-weight:700;color:#fff;">EcoPoche - Rapport Comparatif</div>
+            <div style="font-size:9px;color:#9ab0cc;margin-top:2px;">{{ $user->full_name }} &nbsp;·&nbsp; {{ $user->email }}</div>
             <div style="display:inline-block;background:#006c49;color:#fff;font-size:8px;font-weight:700;
                         padding:2px 8px;border-radius:12px;text-transform:uppercase;margin-top:4px;">{{ $periodeLabel }}</div>
         </td>
@@ -98,7 +98,7 @@
         <td width="60%" style="padding-right:10px;">
             <div class="box">
                 <div style="font-size:9px;font-weight:700;color:#1F2937;margin-bottom:6px;">
-                    Comparatif {{ $periodeLabel }} — Revenus / Dépenses / Épargne
+                    Comparatif {{ $periodeLabel }} - Revenus / Dépenses / Épargne
                 </div>
                 <div style="font-size:7.5px;color:#6B7280;margin-bottom:6px;">
                     <span style="color:#002452;font-weight:700;">&#9632;</span> Revenus &nbsp;
@@ -223,7 +223,7 @@
         @php
             $tx=$h['revenu']>0?round($h['depenses']/$h['revenu']*100):0;
             $sc=match(true){
-                $h['revenu']==0=>['l'=>'—',       'c'=>'b-gray'],
+                $h['revenu']==0=>['l'=>'-',       'c'=>'b-gray'],
                 $h['solde']<0  =>['l'=>'Dépassé', 'c'=>'b-red'],
                 $tx>=70        =>['l'=>'Attention','c'=>'b-yellow'],
                 default        =>['l'=>'Sain',     'c'=>'b-green'],
@@ -234,15 +234,15 @@
                 {{ $h['label'] }}
                 @if($h['actif'])<span class="badge b-green">Actuel</span>@endif
             </td>
-            <td class="r">{{ $h['revenu']>0?number_format($h['revenu'],0,',',' '):'—' }}</td>
+            <td class="r">{{ $h['revenu']>0?number_format($h['revenu'],0,',',' '):'-' }}</td>
             <td class="r" style="{{ $h['depenses']>0?'color:#EF4444;':'color:#9CA3AF;' }}">
-                {{ $h['depenses']>0?number_format($h['depenses'],0,',',' '):'—' }}
+                {{ $h['depenses']>0?number_format($h['depenses'],0,',',' '):'-' }}
             </td>
             <td class="r" style="{{ $h['solde']>=0?'color:#006c49;font-weight:700;':'color:#EF4444;font-weight:700;' }}">
-                {{ $h['revenu']>0?(($h['solde']>=0?'+':'').number_format($h['solde'],0,',',' ')):'—' }}
+                {{ $h['revenu']>0?(($h['solde']>=0?'+':'').number_format($h['solde'],0,',',' ')):'-' }}
             </td>
             <td class="r" style="color:#006c49;font-weight:600;">
-                {{ $h['epargne']>0?number_format($h['epargne'],0,',',' '):'—' }}
+                {{ $h['epargne']>0?number_format($h['epargne'],0,',',' '):'-' }}
             </td>
             <td class="r"><span class="badge {{ $sc['c'] }}">{{ $sc['l'] }}</span></td>
         </tr>
@@ -262,9 +262,58 @@
     </tfoot>
 </table>
 
+{{-- Emprunts & Prêts --}}
+@if(isset($dettesData) && $dettesData['dettes']->isNotEmpty())
+<p class="stitle" style="margin-top:12px;">Emprunts & Prêts</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
+    <tr>
+        <td width="48%" style="padding:6px 9px;border:1px solid #EF4444;background:#fef2f2;border-radius:4px;">
+            <div class="lbl">Emprunts actifs</div>
+            <div class="val val-r">{{ $dettesData['nbEmpruntsActifs'] }} <span style="font-size:8px;font-weight:400;">- {{ number_format($dettesData['totalEmpruntsRestant'],0,',',' ') }} FCFA restant</span></div>
+        </td>
+        <td width="4%"></td>
+        <td width="48%" style="padding:6px 9px;border:1px solid #006c49;background:#f0fdf4;border-radius:4px;">
+            <div class="lbl">Prêts actifs</div>
+            <div class="val val-g">{{ $dettesData['nbPretsActifs'] }} <span style="font-size:8px;font-weight:400;">- {{ number_format($dettesData['totalPretsRestant'],0,',',' ') }} FCFA restant</span></div>
+        </td>
+    </tr>
+</table>
+<table class="data" width="100%">
+    <thead>
+        <tr>
+            <th>Type</th>
+            <th>Contrepartie</th>
+            <th class="r">Initial</th>
+            <th class="r">Remboursé</th>
+            <th class="r">Restant</th>
+            <th>Statut</th>
+            <th>Échéance</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach($dettesData['dettes'] as $d)
+        <tr>
+            <td style="text-transform:capitalize;">{{ $d->type }}</td>
+            <td>{{ $d->partie }}</td>
+            <td class="r">{{ number_format((int)$d->montant_initial,0,',',' ') }}</td>
+            <td class="r" style="color:#006c49;">{{ number_format((int)$d->montant_rembourse,0,',',' ') }}</td>
+            <td class="r" style="color:#EF4444;font-weight:700;">{{ number_format((int)$d->montant_restant,0,',',' ') }}</td>
+            <td>
+                @if($d->statut === 'solde')<span class="badge b-green">Soldé</span>
+                @elseif($d->statut === 'en_retard')<span class="badge b-red">En retard</span>
+                @else<span class="badge b-gray">En cours</span>@endif
+            </td>
+            <td>{{ $d->date_echeance ? $d->date_echeance->format('d/m/Y') : '-' }}</td>
+        </tr>
+        @endforeach
+    </tbody>
+</table>
+@endif
+
 <div style="margin-top:16px;padding-top:6px;border-top:1px solid #E5E7EB;font-size:7.5px;color:#9CA3AF;text-align:center;">
     Rapport généré par EcoPoche le {{ now()->translatedFormat('d F Y à H:i') }}
     &nbsp;·&nbsp; Période : {{ $periodeLabel }}
+    &nbsp;·&nbsp; Import CSV et récurrences : Paramètres / Dépenses
 </div>
 
 </td></tr>

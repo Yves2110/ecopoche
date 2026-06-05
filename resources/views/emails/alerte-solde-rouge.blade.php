@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Alerte budget — EcoPoche</title>
+<title>Alerte budget - EcoPoche</title>
 <style>
   body { margin:0; padding:0; background:#F3F4F6; font-family:'Segoe UI',Arial,sans-serif; color:#1F2937; }
   .wrapper { max-width:580px; margin:32px auto; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,.08); }
@@ -23,7 +23,7 @@
   ul { margin:0; padding-left:0; list-style:none; }
   ul li { font-size:12px; color:#4B5563; padding:5px 0; border-bottom:1px solid #F3F4F6; display:flex; align-items:flex-start; gap:8px; }
   ul li:last-child { border-bottom:none; }
-  ul li::before { content:'—'; color:#9CA3AF; flex-shrink:0; }
+  ul li::before { content:'-'; color:#9CA3AF; flex-shrink:0; }
   .btn { display:inline-block; background:#002452; color:#fff; text-decoration:none; padding:10px 22px; border-radius:8px; font-size:13px; font-weight:600; margin-top:20px; }
   .footer { background:#F8FAFC; padding:16px 32px; text-align:center; font-size:11px; color:#9CA3AF; border-top:1px solid #E5E7EB; }
   .progress-bar { background:#E5E7EB; border-radius:999px; height:8px; margin:4px 0; overflow:hidden; }
@@ -33,22 +33,22 @@
 <body>
 <div class="wrapper">
   <div class="header">
-    <h1>EcoPoche — Alerte budget</h1>
+    <h1>EcoPoche - Alerte budget</h1>
     <p>{{ now()->translatedFormat('d F Y à H:i') }}</p>
   </div>
 
   <div class="body">
-    <p style="font-size:14px;margin:0 0 16px">Bonjour <strong>{{ $user->name }}</strong>,</p>
+    <p style="font-size:14px;margin:0 0 16px">Bonjour <strong>{{ $user->full_name }}</strong>,</p>
 
     @php
       $barWidth = min(100, round($ratio * 100));
-      $moisLabel = \Carbon\Carbon::createFromDate($budget->annee, $budget->mois, 1)->translatedFormat('F Y');
+      $moisLabel = \App\Services\BudgetPeriodService::label($user, $budget->mois, $budget->annee);
     @endphp
 
     <div class="alert-banner">
       <div class="title">
         @if($solde < 0)
-          Budget dépassé — action requise
+          Budget dépassé - action requise
         @else
           Budget en zone critique ({{ $barWidth }}%)
         @endif
@@ -79,10 +79,9 @@
 
     <div class="section-title">Actions recommandées</div>
     <ul>
-      <li>Geler toutes les dépenses non essentielles jusqu'à la fin du mois.</li>
-      <li>Envisager de débloquer une partie de votre réserve si disponible.</li>
-      <li>Réduire les sorties, loisirs et achats imprévus.</li>
-      <li>Consulter votre tableau de bord pour identifier les catégories en dépassement.</li>
+      @foreach($conseils() as $conseil)
+      <li>{{ $conseil }}</li>
+      @endforeach
     </ul>
 
     <a href="{{ url('/depenses') }}" class="btn">Voir mes dépenses</a>
@@ -90,7 +89,7 @@
 
   <div class="footer">
     EcoPoche &mdash; Gestion budgétaire personnelle &bull; Vous recevez ce mail car votre solde est passé en zone critique.<br>
-    Pour gérer vos préférences, rendez-vous dans vos <a href="{{ url('/parametres') }}" style="color:#6B7280">paramètres</a>.
+    Pour gérer vos préférences, rendez-vous dans votre <a href="{{ url('/profil') }}" style="color:#6B7280">profil</a>.
   </div>
 </div>
 </body>

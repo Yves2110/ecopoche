@@ -1,4 +1,4 @@
-<x-layouts.app title="Paramètres" pageTitle="Paramètres" pageSubtitle="Profil & préférences">
+﻿<x-layouts.app title="Paramètres" pageTitle="Paramètres" pageSubtitle="Profil & préférences">
 
 @php
     $quota     = (int) ($user->quota_taux           ?? 30);
@@ -7,15 +7,39 @@
     $seuilPlaf = (int) ($user->seuil_plafond_cat     ?? 80);
     $objEpPct  = (int) ($user->objectif_epargne_pct  ?? 10);
     $jourBilan = (int) ($user->jour_bilan_email       ?? 1);
+    $jourDebutMois = (int) ($user->jour_debut_mois    ?? 1);
 @endphp
+
+@if(auth()->user()->must_change_password)
+<div class="mb-4 flex items-start gap-2 bg-[#FEF3C7] border border-[#FDE68A] text-[#92400e] text-sm px-4 py-3 rounded-xl">
+    <span class="material-symbols-outlined text-base flex-shrink-0">lock</span>
+    <p><strong>Mot de passe provisoire</strong> — Définissez un nouveau mot de passe dans la section Sécurité avant d'utiliser l'application.</p>
+</div>
+@endif
+
+@if(session('warning'))
+<div class="mb-4 flex items-center gap-2 bg-[#FEF3C7] border border-[#FDE68A] text-[#92400e] text-sm px-4 py-3 rounded-xl">{{ session('warning') }}</div>
+@endif
+
+<div class="mb-4 flex flex-wrap gap-4">
+    <a href="{{ route('profil.activite') }}" class="inline-flex items-center gap-1.5 text-sm font-semibold text-[#002452] hover:underline">
+        <span class="material-symbols-outlined text-base">history</span> Historique d'activité
+    </a>
+    <a href="{{ route('profil.recurrences.index') }}" class="inline-flex items-center gap-1.5 text-sm font-semibold text-[#002452] hover:underline">
+        <span class="material-symbols-outlined text-base">event_repeat</span> Récurrences
+    </a>
+    <a href="{{ route('profil.export.donnees') }}" class="inline-flex items-center gap-1.5 text-sm font-semibold text-[#002452] hover:underline">
+        <span class="material-symbols-outlined text-base">download</span> Exporter mes données (RGPD)
+    </a>
+</div>
 
 {{-- ======= BANDEAU HAUT : identité + succès ======= --}}
 <div class="flex items-center gap-4 soft-card p-4 mb-5">
     <div class="w-12 h-12 rounded-full bg-[#002452] flex items-center justify-center text-white text-xl font-bold flex-shrink-0">
-        {{ strtoupper(substr($user->name, 0, 1)) }}
+        {{ strtoupper(substr($user->prenom ?: $user->name, 0, 1)) }}
     </div>
     <div class="flex-1 min-w-0">
-        <p class="font-headline font-bold text-[#1F2937] text-sm truncate">{{ $user->name }}</p>
+        <p class="font-headline font-bold text-[#1F2937] text-sm truncate">{{ $user->full_name }}</p>
         <p class="text-xs text-[#6B7280] truncate">{{ $user->email }}</p>
     </div>
     <span class="text-[10px] font-bold px-2.5 py-1 rounded-full flex-shrink-0
@@ -61,11 +85,19 @@
             </h4>
             <form method="POST" action="{{ route('profil.update.infos') }}" class="space-y-3">
                 @csrf @method('PUT')
-                <div>
-                    <label class="block text-xs font-semibold text-[#6B7280] mb-1.5 uppercase tracking-wide">Nom complet</label>
-                    <input type="text" name="name" value="{{ old('name', $user->name) }}" required
-                           class="w-full px-3 py-2.5 border @error('name') border-[#EF4444] @else border-[#E5E7EB] @enderror rounded-lg text-sm focus:outline-none focus:border-[#002452] bg-white" />
-                    @error('name')<p class="text-[#EF4444] text-xs mt-1">{{ $message }}</p>@enderror
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-[#6B7280] mb-1.5 uppercase tracking-wide">Prénom</label>
+                        <input type="text" name="prenom" value="{{ old('prenom', $user->prenom) }}" required
+                               class="w-full px-3 py-2.5 border @error('prenom') border-[#EF4444] @else border-[#E5E7EB] @enderror rounded-lg text-sm focus:outline-none focus:border-[#002452] bg-white" />
+                        @error('prenom')<p class="text-[#EF4444] text-xs mt-1">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-[#6B7280] mb-1.5 uppercase tracking-wide">Nom</label>
+                        <input type="text" name="nom" value="{{ old('nom', $user->nom) }}" required
+                               class="w-full px-3 py-2.5 border @error('nom') border-[#EF4444] @else border-[#E5E7EB] @enderror rounded-lg text-sm focus:outline-none focus:border-[#002452] bg-white" />
+                        @error('nom')<p class="text-[#EF4444] text-xs mt-1">{{ $message }}</p>@enderror
+                    </div>
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-[#6B7280] mb-1.5 uppercase tracking-wide">Adresse email</label>
@@ -87,23 +119,9 @@
             </h4>
             <form method="POST" action="{{ route('profil.update.password') }}" class="space-y-3">
                 @csrf @method('PUT')
-                <div>
-                    <label class="block text-xs font-semibold text-[#6B7280] mb-1.5 uppercase tracking-wide">Mot de passe actuel</label>
-                    <input type="password" name="current_password" required
-                           class="w-full px-3 py-2.5 border @error('current_password') border-[#EF4444] @else border-[#E5E7EB] @enderror rounded-lg text-sm focus:outline-none focus:border-[#002452] bg-white" />
-                    @error('current_password')<p class="text-[#EF4444] text-xs mt-1">{{ $message }}</p>@enderror
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-[#6B7280] mb-1.5 uppercase tracking-wide">Nouveau mot de passe</label>
-                    <input type="password" name="password" required
-                           class="w-full px-3 py-2.5 border @error('password') border-[#EF4444] @else border-[#E5E7EB] @enderror rounded-lg text-sm focus:outline-none focus:border-[#002452] bg-white" />
-                    @error('password')<p class="text-[#EF4444] text-xs mt-1">{{ $message }}</p>@enderror
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-[#6B7280] mb-1.5 uppercase tracking-wide">Confirmer</label>
-                    <input type="password" name="password_confirmation" required
-                           class="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-[#002452] bg-white" />
-                </div>
+                <x-password-input name="current_password" label="Mot de passe actuel" :required="true" autocomplete="current-password" />
+                <x-password-input name="password" label="Nouveau mot de passe" :required="true" autocomplete="new-password" />
+                <x-password-input name="password_confirmation" label="Confirmer" :required="true" autocomplete="new-password" />
                 <button type="submit" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-[#002452] text-[#002452] text-sm font-semibold hover:bg-[#002452]/5 transition-colors">
                     <span class="material-symbols-outlined text-base">key</span> Modifier
                 </button>
@@ -237,7 +255,7 @@
                     <input type="range" name="quota_taux" min="0" max="100" step="5" x-model="quota"
                            class="w-full h-2 bg-[#E5E7EB] rounded-full appearance-none cursor-pointer accent-[#002452]" />
                     <div class="flex justify-between text-[10px] text-[#9CA3AF] mt-0.5">
-                        <span>0% — tout en réserve</span><span>50%</span><span>100% — tout dispo</span>
+                        <span>0% - tout en réserve</span><span>50%</span><span>100% - tout dispo</span>
                     </div>
                     {{-- Simulation live --}}
                     <div class="mt-3 grid grid-cols-3 gap-2">
@@ -272,7 +290,7 @@
                     <input type="range" name="objectif_epargne_pct" min="0" max="80" step="5" x-model="objEp"
                            class="w-full h-2 bg-[#E5E7EB] rounded-full appearance-none cursor-pointer accent-[#006c49]" />
                     <div class="flex justify-between text-[10px] text-[#9CA3AF] mt-0.5">
-                        <span>0% — pas d'objectif</span><span>40%</span><span>80% max</span>
+                        <span>0% - pas d'objectif</span><span>40%</span><span>80% max</span>
                     </div>
                     <p class="text-[10px] text-[#9CA3AF] mt-1 italic">
                         Utilisé comme référence dans le suivi épargne mensuel et les rapports.
@@ -295,7 +313,7 @@
                     <input type="range" name="epargne_salaire_pct" min="0" max="50" step="1" x-model="epS"
                            class="w-full h-2 bg-[#E5E7EB] rounded-full appearance-none cursor-pointer accent-[#006c49]" />
                     <div class="flex justify-between text-[10px] text-[#9CA3AF] mt-0.5">
-                        <span>0% — désactivé</span><span>10%</span><span>50% max</span>
+                        <span>0% - désactivé</span><span>10%</span><span>50% max</span>
                     </div>
                     <div class="mt-2 grid grid-cols-2 gap-2" x-show="epS > 0">
                         <div class="p-2.5 bg-[#f0fdf4] border border-[#006c49]/20 rounded-lg text-center">
@@ -320,10 +338,10 @@
                     <label class="block text-xs font-semibold text-[#1F2937] mb-1.5 uppercase tracking-wide">Devise d'affichage</label>
                     @php
                         $devises = [
-                            'FCFA'=>'FCFA — Franc CFA (XOF)','EUR'=>'EUR — Euro (€)',
-                            'USD'=>'USD — Dollar ($)','GBP'=>'GBP — Livre (£)',
-                            'MAD'=>'MAD — Dirham marocain','DZD'=>'DZD — Dinar algérien',
-                            'TND'=>'TND — Dinar tunisien','NGN'=>'NGN — Naira nigérian','GHS'=>'GHS — Cedi ghanéen',
+                            'FCFA'=>'FCFA - Franc CFA (XOF)','EUR'=>'EUR - Euro (€)',
+                            'USD'=>'USD - Dollar ($)','GBP'=>'GBP - Livre (£)',
+                            'MAD'=>'MAD - Dirham marocain','DZD'=>'DZD - Dinar algérien',
+                            'TND'=>'TND - Dinar tunisien','NGN'=>'NGN - Naira nigérian','GHS'=>'GHS - Cedi ghanéen',
                         ];
                     @endphp
                     <select name="devise" class="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-[#002452] bg-white">
@@ -419,6 +437,25 @@
                     Notifications & Affichage
                 </h4>
 
+                {{-- Période budgétaire personnalisée --}}
+                <div class="p-3 bg-[#F0F4FF] border border-[#E0E7FF] rounded-xl">
+                    <div class="flex items-start gap-2 mb-2">
+                        <span class="material-symbols-outlined text-[#002452] text-lg">date_range</span>
+                        <div>
+                            <p class="text-sm font-semibold text-[#1F2937]">Début de votre mois budgétaire</p>
+                            <p class="text-xs text-[#6B7280] mt-0.5">Ex. salaire le 25 → période du 25 au 24. Laissez <strong>1</strong> pour le mois calendaire classique.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-[#6B7280]">Jour du mois</span>
+                        <input type="number" name="jour_debut_mois"
+                               value="{{ old('jour_debut_mois', $jourDebutMois > 1 ? $jourDebutMois : '') }}"
+                               min="1" max="28" placeholder="1"
+                               class="w-16 px-2 py-1.5 text-center border border-[#E5E7EB] rounded-lg text-sm font-bold text-[#002452] focus:outline-none focus:border-[#002452] bg-white" />
+                    </div>
+                    @error('jour_debut_mois')<p class="text-[#EF4444] text-xs mt-1">{{ $message }}</p>@enderror
+                </div>
+
                 {{-- Notifications email --}}
                 <div class="flex items-center justify-between p-3 bg-[#F8FAFC] border border-[#E5E7EB] rounded-xl">
                     <div>
@@ -458,7 +495,7 @@
                 <div class="flex items-center justify-between p-3 bg-[#F8FAFC] border border-[#E5E7EB] rounded-xl">
                     <div>
                         <p class="text-sm font-semibold text-[#1F2937]">Mode discret</p>
-                        <p class="text-xs text-[#9CA3AF]">Masque les montants — utile en public</p>
+                        <p class="text-xs text-[#9CA3AF]">Masque les montants - utile en public</p>
                     </div>
                     <div>
                         <input type="hidden" name="mode_discret" :value="discret ? '1' : '0'" />

@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Budget;
 use App\Models\Depense;
+use App\Models\Dette;
+use App\Models\Remboursement;
+use App\Models\Revenu;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -33,8 +36,8 @@ class RapportsController extends Controller
 
             // montant_quota = part dépensable ce mois (ex: 30% du bonus)
             // montant_dispo = part réservée/épargnée (ex: 70% du bonus)
-            $bonusDepensable = (int) $revenus->where('quota_applique', true)->sum('montant_quota');
-            $bonusEpargne    = (int) $revenus->where('quota_applique', true)->sum('montant_dispo');
+            $bonusDepensable = (int) Revenu::sumDepensable($revenus);
+            $bonusEpargne    = (int) Revenu::sumReserve($revenus);
 
             // Épargne sur salaire fixe
             $epargnesSalairePct = (int) ($user->epargne_salaire_pct ?? 0);
@@ -103,6 +106,41 @@ class RapportsController extends Controller
             ->toArray();
     }
 
+    /**
+     * Récupère les dettes actives + remboursements du mois pour l'export.
+     */
+    private function getDettesExport(?int $mois = null, ?int $annee = null): array
+    {
+        $userId = Auth::id();
+        $dettes = Dette::where('user_id', $userId)
+            ->with('remboursements')
+            ->orderByDesc('created_at')
+            ->get();
+
+        // Remboursements du mois (si mois/annee fournis)
+        $remboursementsMois = collect();
+        if ($mois && $annee) {
+            $remboursementsMois = Remboursement::whereHas('dette', fn($q) => $q->where('user_id', $userId))
+                ->whereMonth('date', $mois)
+                ->whereYear('date', $annee)
+                ->with('dette')
+                ->orderBy('date')
+                ->get();
+        }
+
+        $empruntsActifs = $dettes->where('type', 'emprunt')->whereIn('statut', ['actif', 'en_retard']);
+        $pretsActifs    = $dettes->where('type', 'pret')->whereIn('statut', ['actif', 'en_retard']);
+
+        return [
+            'dettes'             => $dettes,
+            'remboursementsMois' => $remboursementsMois,
+            'totalEmpruntsRestant' => (int) $empruntsActifs->sum(fn($d) => $d->montant_restant),
+            'totalPretsRestant'    => (int) $pretsActifs->sum(fn($d) => $d->montant_restant),
+            'nbEmpruntsActifs'   => $empruntsActifs->count(),
+            'nbPretsActifs'      => $pretsActifs->count(),
+        ];
+    }
+
     public function index(Request $request): \Illuminate\View\View
     {
         /** @var User $user */
@@ -141,9 +179,10 @@ class RapportsController extends Controller
         $agg           = $this->buildAggregats($historique);
         $periodeLabel  = $nbMois === 6 ? '6 derniers mois' : '12 derniers mois';
         $filename      = 'ecopoche_comparatif_' . $annee . '_' . $mois . '.pdf';
+        $dettesData    = $this->getDettesExport();
 
         $pdf = Pdf::loadView('rapports.pdf.comparatif', array_merge(
-            compact('historique', 'user', 'periodeLabel', 'mois', 'annee'),
+            compact('historique', 'user', 'periodeLabel', 'mois', 'annee', 'dettesData'),
             $agg
         ))->setPaper('a4', 'landscape');
 
@@ -201,6 +240,23 @@ class RapportsController extends Controller
             $lines[] = implode(';', [$cat['nom'], $cat['total']]);
         }
 
+        // Section Emprunts & Prêts
+        $dettesData = $this->getDettesExport();
+        $lines[] = '';
+        $lines[] = 'EMPRUNTS & PRÊTS';
+        $lines[] = implode(';', ['Type', 'Contrepartie', 'Montant initial', 'Remboursé', 'Restant', 'Statut', 'Échéance']);
+        foreach ($dettesData['dettes'] as $d) {
+            $lines[] = implode(';', [
+                ucfirst($d->type),
+                $d->partie,
+                (int) $d->montant_initial,
+                (int) $d->montant_rembourse,
+                (int) $d->montant_restant,
+                ucfirst(str_replace('_', ' ', $d->statut)),
+                $d->date_echeance ? $d->date_echeance->format('d/m/Y') : '—',
+            ]);
+        }
+
         $content = "\xEF\xBB\xBF" . implode("\r\n", $lines);
         return response($content, 200, [
             'Content-Type'        => 'text/csv; charset=UTF-8',
@@ -247,9 +303,10 @@ class RapportsController extends Controller
 
         $periodeLabel = "Bilan annuel {$annee}";
         $filename     = "ecopoche_bilan_annuel_{$annee}.pdf";
+        $dettesData   = $this->getDettesExport();
 
         $pdf = Pdf::loadView('rapports.pdf.comparatif', array_merge(
-            compact('historique', 'user', 'periodeLabel', 'annee', 'meilleurMois', 'pireMois'),
+            compact('historique', 'user', 'periodeLabel', 'annee', 'meilleurMois', 'pireMois', 'dettesData'),
             $agg,
             ['mois' => 12]
         ))->setPaper('a4', 'landscape');
@@ -284,9 +341,10 @@ class RapportsController extends Controller
         $agg           = $this->buildAggregats($historique);
         $periodeLabel  = $nbMois === 6 ? '6 derniers mois' : '12 derniers mois';
         $filename      = 'ecopoche_comparatif_' . $annee . '_' . $mois . '.pdf';
+        $dettesData    = $this->getDettesExport();
 
         $pdf = Pdf::loadView('rapports.pdf.comparatif', array_merge(
-            compact('historique', 'user', 'periodeLabel', 'mois', 'annee', 'chartImage'),
+            compact('historique', 'user', 'periodeLabel', 'mois', 'annee', 'chartImage', 'dettesData'),
             $agg
         ))->setPaper('a4', 'landscape');
 
@@ -314,9 +372,10 @@ class RapportsController extends Controller
 
         $periodeLabel = "Bilan annuel {$annee}";
         $filename     = "ecopoche_bilan_annuel_{$annee}.pdf";
+        $dettesData   = $this->getDettesExport();
 
         $pdf = Pdf::loadView('rapports.pdf.comparatif', array_merge(
-            compact('historique', 'user', 'periodeLabel', 'annee', 'meilleurMois', 'pireMois', 'chartImage'),
+            compact('historique', 'user', 'periodeLabel', 'annee', 'meilleurMois', 'pireMois', 'chartImage', 'dettesData'),
             $agg,
             ['mois' => 12]
         ))->setPaper('a4', 'landscape');
@@ -341,6 +400,8 @@ class RapportsController extends Controller
             ? $budget->depenses()->with('categorie')->orderBy('date')->get()
             : collect();
 
+        $dettesData = $this->getDettesExport($mois, $annee);
+
         $moisLabel = Carbon::createFromDate($annee, $mois, 1)->translatedFormat('F_Y');
         $filename  = "ecopoche_depenses_{$moisLabel}.csv";
 
@@ -357,6 +418,28 @@ class RapportsController extends Controller
         }
         $lines[] = '';
         $lines[] = implode(';', ['', '', 'TOTAL', (int) $depenses->sum('montant'), '']);
+
+        // Section Emprunts & Prêts
+        $lines[] = '';
+        $lines[] = 'EMPRUNTS & PRÊTS';
+        $lines[] = implode(';', ['Emprunts actifs', $dettesData['nbEmpruntsActifs'], 'Restant', $dettesData['totalEmpruntsRestant'] . ' FCFA']);
+        $lines[] = implode(';', ['Prêts actifs', $dettesData['nbPretsActifs'], 'Restant', $dettesData['totalPretsRestant'] . ' FCFA']);
+
+        if ($dettesData['remboursementsMois']->isNotEmpty()) {
+            $lines[] = '';
+            $lines[] = 'REMBOURSEMENTS DU MOIS';
+            $lines[] = implode(';', ['Date', 'Type', 'Contrepartie', 'Montant (FCFA)', 'Note']);
+            foreach ($dettesData['remboursementsMois'] as $r) {
+                $lines[] = implode(';', [
+                    $r->date->format('d/m/Y'),
+                    ucfirst($r->dette->type ?? ''),
+                    $r->dette->partie ?? '',
+                    (int) $r->montant,
+                    $r->note ?? '',
+                ]);
+            }
+            $lines[] = implode(';', ['', '', 'TOTAL', (int) $dettesData['remboursementsMois']->sum('montant'), '']);
+        }
 
         $content = "\xEF\xBB\xBF" . implode("\r\n", $lines);
 
@@ -380,7 +463,7 @@ class RapportsController extends Controller
 
         $revenus         = $budget?->revenus ?? collect();
         $depenses        = $budget ? $budget->depenses()->with('categorie')->orderBy('date')->get() : collect();
-        $totalDepensable = (int) $revenus->where('quota_applique', true)->sum('montant_dispo');
+        $totalDepensable = (int) Revenu::sumDepensable($revenus);
         $totalDepenses   = (int) $depenses->sum('montant');
         $solde           = (int) ($budget?->salaire_fixe ?? 0) + $totalDepensable - $totalDepenses;
         $epargne         = $budget?->epargne;
@@ -408,10 +491,12 @@ class RapportsController extends Controller
 
         $salaire = (int) ($budget?->salaire_fixe ?? 0);
 
+        $dettesData = $this->getDettesExport($mois, $annee);
+
         $pdf = Pdf::loadView('rapports.pdf.bilan', compact(
             'budget', 'user', 'revenus', 'depenses', 'epargne',
             'totalDepensable', 'totalDepenses', 'solde', 'sante', 'salaire',
-            'parCategorie', 'moisLabel', 'mois', 'annee'
+            'parCategorie', 'moisLabel', 'mois', 'annee', 'dettesData'
         ))->setPaper('a4', 'portrait');
 
         return $pdf->download($filename);

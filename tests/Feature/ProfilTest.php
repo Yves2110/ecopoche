@@ -32,14 +32,17 @@ class ProfilTest extends TestCase
     public function test_can_update_name_and_email(): void
     {
         $this->put(route('profil.update.infos'), [
-            'name'  => 'Nouveau Nom',
-            'email' => 'nouveau@ecopoche.com',
+            'prenom' => 'Nouveau',
+            'nom'    => 'Nom',
+            'email'  => 'nouveau@ecopoche.com',
         ])->assertRedirect();
 
         $this->assertDatabaseHas('users', [
-            'id'    => $this->user->id,
-            'name'  => 'Nouveau Nom',
-            'email' => 'nouveau@ecopoche.com',
+            'id'     => $this->user->id,
+            'prenom' => 'Nouveau',
+            'nom'    => 'Nom',
+            'name'   => 'Nouveau Nom',
+            'email'  => 'nouveau@ecopoche.com',
         ]);
     }
 
@@ -48,8 +51,9 @@ class ProfilTest extends TestCase
         $other = User::factory()->create(['email' => 'taken@ecopoche.com', 'is_active' => true]);
 
         $this->put(route('profil.update.infos'), [
-            'name'  => 'Test',
-            'email' => 'taken@ecopoche.com',
+            'prenom' => 'Test',
+            'nom'    => 'User',
+            'email'  => 'taken@ecopoche.com',
         ])->assertSessionHasErrors('email');
     }
 
@@ -61,10 +65,11 @@ class ProfilTest extends TestCase
             'current_password'      => 'ancienmdp',
             'password'              => 'nouveauMdp1!',
             'password_confirmation' => 'nouveauMdp1!',
-        ])->assertRedirect();
+        ])->assertRedirect(route('dashboard'));
 
         $this->user->refresh();
         $this->assertTrue(Hash::check('nouveauMdp1!', $this->user->password));
+        $this->assertFalse($this->user->must_change_password);
     }
 
     public function test_wrong_current_password_rejected(): void

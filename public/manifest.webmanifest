@@ -1,0 +1,19 @@
+{
+  "name": "EcoPoche",
+  "short_name": "EcoPoche",
+  "description": "Gestion budgétaire personnelle",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F8FAFC",
+  "theme_color": "#002452",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

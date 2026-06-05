@@ -1,8 +1,12 @@
-@props([
+﻿@props([
     'title'        => 'EcoPoche',
     'pageTitle'    => "Vue d'ensemble",
     'pageSubtitle' => null,
     'monthSelector' => false,
+    'periodMois'   => null,
+    'periodAnnee'  => null,
+    'periodeLabel' => null,
+    'periodRoute'  => 'dashboard',
 ])
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" x-data="{ sidebarOpen: false }" class="light">
@@ -10,8 +14,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="csrf-token" content="{{ csrf_token() }}" />
-    <title>{{ $title ?? 'EcoPoche' }} — Gestion Budgétaire</title>
+    <meta name="theme-color" content="#002452" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>{{ $title ?? 'EcoPoche' }} - Gestion Budgétaire</title>
 
+    <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="alternate icon" href="/favicon.ico" />
 
@@ -76,11 +84,22 @@
             <span>Épargne</span>
         </a>
 
+        <a href="{{ route('dettes.index') }}"
+           class="sidebar-item {{ request()->routeIs('dettes.*') ? 'sidebar-item-active' : '' }}">
+            <span class="material-symbols-outlined text-xl">handshake</span>
+            <span>Emprunts &amp; Prêts</span>
+        </a>
+
         <a href="{{ route('alertes.index') }}"
            class="sidebar-item {{ request()->routeIs('alertes.*') ? 'sidebar-item-active' : '' }} relative">
             <span class="material-symbols-outlined text-xl">notifications</span>
             <span>Alertes</span>
-            @php $sidebarNbAlertes = auth()->check() ? \App\Models\Alerte::where('user_id', auth()->id())->whereNull('lu_at')->count() : 0; @endphp
+            @php
+                if (auth()->check()) {
+                    \App\Services\AlerteService::cloturerAlertesPeriodesExpirees(auth()->user());
+                }
+                $sidebarNbAlertes = auth()->check() ? \App\Services\AlerteService::compterNonLues(auth()->user()) : 0;
+            @endphp
             @if($sidebarNbAlertes > 0)
             <span class="ml-auto text-[10px] bg-[#DC2626] text-white font-bold px-1.5 py-0.5 rounded-full">{{ $sidebarNbAlertes }}</span>
             @endif
@@ -94,13 +113,21 @@
             <span>Rapports</span>
         </a>
 
-        @if(auth()->user()?->role === 'super_admin' || auth()->user()?->role === 'admin')
+        @if(auth()->user()?->isAdmin())
         <p class="text-[9px] font-bold uppercase tracking-widest text-white/30 px-3 mt-4 mb-2">Administration</p>
+        @if(auth()->user()->isSuperAdmin())
         <a href="{{ route('admin.index') }}"
            class="sidebar-item {{ request()->routeIs('admin.*') ? 'sidebar-item-active' : '' }}">
             <span class="material-symbols-outlined text-xl">admin_panel_settings</span>
             <span>Administration</span>
         </a>
+        @else
+        <div class="sidebar-item opacity-40 cursor-not-allowed pointer-events-none select-none"
+             title="Réservé à l'administrateur du site">
+            <span class="material-symbols-outlined text-xl">lock</span>
+            <span>Administration</span>
+        </div>
+        @endif
         @endif
     </nav>
 
@@ -137,6 +164,14 @@
                 <p class="text-xs text-[#6B7280]">{{ $pageSubtitle }}</p>
                 @endisset
             </div>
+            @if(request()->routeIs('dashboard'))
+            <button onclick="document.dispatchEvent(new CustomEvent('open-onboarding'))"
+                    class="ml-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#002452]/10 text-[#002452] text-xs font-semibold hover:bg-[#002452]/20 transition-colors"
+                    title="Relancer le guide de démarrage">
+                <span class="material-symbols-outlined" style="font-size:16px;">school</span>
+                <span class="hidden sm:inline">Guide</span>
+            </button>
+            @endif
         </div>
 
         {{-- Right : mois sélecteur + notifs + user --}}
@@ -144,19 +179,27 @@
 
             {{-- Sélecteur mois/année --}}
             @isset($monthSelector)
-            <div class="hidden sm:flex items-center gap-1 bg-[#F8FAFC] border border-[#E5E7EB] rounded-lg px-3 py-1.5">
-                <button class="text-[#002452] hover:text-[#10B981] transition-colors">
+            @if($periodMois && $periodAnnee && $periodeLabel)
+            @php
+                $hdrPrec = \App\Services\BudgetPeriodService::periodePrecedente((int) $periodMois, (int) $periodAnnee);
+                $hdrNext = \App\Services\BudgetPeriodService::periodeSuivante((int) $periodMois, (int) $periodAnnee);
+            @endphp
+            <div class="hidden sm:flex items-center gap-1 bg-[#F8FAFC] border border-[#E5E7EB] rounded-lg px-2 py-1.5">
+                <a href="{{ route($periodRoute, ['mois' => $hdrPrec['mois'], 'annee' => $hdrPrec['annee']]) }}"
+                   class="p-0.5 text-[#002452] hover:text-[#006c49] transition-colors">
                     <span class="material-symbols-outlined text-base">chevron_left</span>
-                </button>
-                <span class="text-sm font-semibold text-[#1F2937] mx-1">{{ now()->translatedFormat('F Y') }}</span>
-                <button class="text-[#002452] hover:text-[#10B981] transition-colors">
+                </a>
+                <span class="text-xs font-semibold text-[#1F2937] mx-1 max-w-[140px] truncate" title="{{ $periodeLabel }}">{{ $periodeLabel }}</span>
+                <a href="{{ route($periodRoute, ['mois' => $hdrNext['mois'], 'annee' => $hdrNext['annee']]) }}"
+                   class="p-0.5 text-[#002452] hover:text-[#006c49] transition-colors">
                     <span class="material-symbols-outlined text-base">chevron_right</span>
-                </button>
+                </a>
             </div>
+            @endif
             @endisset
 
             {{-- Notifications --}}
-            @php $nbAlertes = auth()->check() ? \App\Models\Alerte::where('user_id', auth()->id())->whereNull('lu_at')->count() : 0; @endphp
+            @php $nbAlertes = auth()->check() ? \App\Services\AlerteService::compterNonLues(auth()->user()) : 0; @endphp
             <div class="relative" x-data="{ open: false }" @click.outside="open = false">
                 <button @click="open = !open" class="relative p-2 rounded-full hover:bg-gray-100 transition-colors">
                     <span class="material-symbols-outlined text-[#6B7280] text-xl"
@@ -179,12 +222,18 @@
                     </div>
 
                     @php
+                        $courantPeriode = auth()->check()
+                            ? \App\Services\BudgetPeriodService::resolvePeriode(auth()->user())
+                            : null;
                         $dernieresAlertes = auth()->check()
                             ? \App\Models\Alerte::where('user_id', auth()->id())
                                 ->whereNull('lu_at')
                                 ->orderByDesc('created_at')
-                                ->take(5)
                                 ->get()
+                                ->filter(fn ($a) => \App\Services\AlerteService::alerteVisiblePourPeriode(
+                                    $a, $courantPeriode['mois'], $courantPeriode['annee']
+                                ))
+                                ->take(5)
                             : collect();
                         $alerteConfig = [
                             'budget_sain'     => ['#006c49', 'check_circle'],
@@ -247,7 +296,7 @@
             {{-- User --}}
             <div class="flex items-center gap-2 pl-3 border-l border-[#E5E7EB] ml-1">
                 <div class="hidden sm:block text-right">
-                    <p class="text-sm font-semibold text-[#1F2937] leading-tight">{{ auth()->user()?->name ?? 'Utilisateur' }}</p>
+                    <p class="text-sm font-semibold text-[#1F2937] leading-tight">{{ auth()->user()?->full_name ?? 'Utilisateur' }}</p>
                     <p class="text-[10px] text-[#6B7280] uppercase font-medium tracking-wide">
                         {{ match(auth()->user()?->role) {
                             'super_admin' => 'Super Admin',
@@ -257,21 +306,21 @@
                     </p>
                 </div>
                 <div class="w-8 h-8 rounded-full bg-[#002452] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                    {{ strtoupper(substr(auth()->user()?->name ?? 'U', 0, 1)) }}
+                    {{ strtoupper(substr(auth()->user()?->prenom ?: auth()->user()?->name ?? 'U', 0, 1)) }}
                 </div>
             </div>
         </div>
     </header>
 
     {{-- CONTENU PRINCIPAL --}}
-    <main class="flex-1 p-4 lg:p-6 max-w-[1280px] w-full mx-auto">
+    <main id="ecopoche-main" class="flex-1 p-4 lg:p-6 max-w-[1280px] w-full mx-auto transition-[filter] duration-200">
 
         {{-- Bannière impersonnification (visible sur toutes les pages) --}}
         @if(session('impersonnation_id'))
         <div class="flex items-center justify-between bg-[#D97706] text-white text-sm px-4 py-2.5 rounded-xl mb-4 border border-[#b45309]">
             <span class="flex items-center gap-2 font-medium">
                 <span class="material-symbols-outlined text-base">switch_account</span>
-                Mode accès — compte de <strong class="mx-1">{{ auth()->user()->name }}</strong>
+                Mode accès - compte de <strong class="mx-1">{{ auth()->user()->full_name }}</strong>
                 <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full hidden sm:inline">{{ auth()->user()->email }}</span>
             </span>
             <form method="POST" action="{{ route('admin.stop_impersonner') }}">
@@ -324,5 +373,7 @@
 
 @livewireScripts
 @stack('scripts')
+@stack('modals')
+<x-onboarding />
 </body>
 </html>

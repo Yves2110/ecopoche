@@ -28,7 +28,7 @@
     <p>Votre compte a été créé</p>
   </div>
   <div class="body">
-    <p style="font-size:14px;margin:0 0 8px">Bonjour <strong>{{ $user->name }}</strong>,</p>
+    <p style="font-size:14px;margin:0 0 8px">Bonjour <strong>{{ $user->full_name }}</strong>,</p>
     <p style="font-size:13px;color:#4B5563;margin:0 0 20px">Un administrateur a créé votre compte sur <strong>EcoPoche</strong>. Voici vos identifiants de connexion :</p>
 
     <div class="creds">

@@ -2,12 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
+use App\Models\Alerte;
+use App\Models\Budget;
 use App\Models\Categorie;
+use App\Models\Dette;
+use App\Models\Recurrence;
 use App\Models\User;
+use Illuminate\Http\Response;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 class ProfilController extends Controller
@@ -20,6 +27,15 @@ class ProfilController extends Controller
             ->orderBy('ordre')
             ->get();
         return view('profil.index', compact('user', 'categories'));
+    }
+
+    public function activite(): \Illuminate\View\View
+    {
+        $logs = ActivityLog::where('user_id', Auth::id())
+            ->orderByDesc('created_at')
+            ->paginate(30);
+
+        return view('profil.activite', compact('logs'));
     }
 
     public function storeCategorie(Request $request): RedirectResponse
@@ -53,7 +69,7 @@ class ProfilController extends Controller
 
     public function updateCategorie(Request $request, Categorie $categorie): RedirectResponse
     {
-        abort_unless($categorie->user_id === Auth::id(), 403);
+        $this->authorize('update', $categorie);
 
         $data = $request->validate([
             'nom'    => ['required', 'string', 'max:100'],
@@ -67,7 +83,7 @@ class ProfilController extends Controller
 
     public function destroyCategorie(Categorie $categorie): RedirectResponse
     {
-        abort_unless($categorie->user_id === Auth::id(), 403);
+        $this->authorize('delete', $categorie);
 
         if ($categorie->is_default) {
             return back()->withErrors(['cats' => 'Les catégories par défaut ne peuvent pas être supprimées.']);
@@ -87,11 +103,23 @@ class ProfilController extends Controller
         $user = Auth::user();
 
         $data = $request->validate([
-            'name'  => ['required', 'string', 'max:100'],
-            'email' => ['required', 'email', 'max:150', 'unique:users,email,' . $user->id],
+            'prenom' => ['required', 'string', 'max:100'],
+            'nom'    => ['required', 'string', 'max:100'],
+            'email'  => ['required', 'email', 'max:150', Rule::unique('users', 'email')->ignore($user->id)],
+        ], [
+            'prenom.required' => 'Le prénom est obligatoire.',
+            'nom.required'    => 'Le nom est obligatoire.',
+            'email.required'  => 'L\'adresse email est obligatoire.',
+            'email.email'     => 'L\'adresse email n\'est pas valide.',
+            'email.unique'    => 'Cette adresse email est déjà utilisée par un autre compte.',
         ]);
 
-        $user->update($data);
+        $user->update([
+            'prenom' => $data['prenom'],
+            'nom'    => $data['nom'],
+            'name'   => trim($data['prenom'] . ' ' . $data['nom']),
+            'email'  => $data['email'],
+        ]);
         return back()->with('success_infos', 'Informations mises à jour.');
     }
 
@@ -109,8 +137,14 @@ class ProfilController extends Controller
             return back()->withErrors(['current_password' => 'Mot de passe actuel incorrect.'])->withInput();
         }
 
-        $user->update(['password' => Hash::make($request->password)]);
-        return back()->with('success_mdp', 'Mot de passe modifié avec succès.');
+        $user->update([
+            'password'             => Hash::make($request->password),
+            'must_change_password' => false,
+        ]);
+
+        return redirect()
+            ->route('dashboard')
+            ->with('success_mdp', 'Mot de passe modifié avec succès.');
     }
 
     public function updatePreferences(Request $request): RedirectResponse
@@ -128,6 +162,7 @@ class ProfilController extends Controller
             'objectif_epargne_pct' => ['required', 'integer', 'min:0', 'max:80'],
             'epargne_salaire_pct'  => ['required', 'integer', 'min:0', 'max:50'],
             'jour_bilan_email'     => ['required', 'integer', 'min:1', 'max:28'],
+            'jour_debut_mois'      => ['nullable', 'integer', 'min:1', 'max:28'],
             'mode_discret'         => ['nullable', 'boolean'],
         ]);
 
@@ -148,9 +183,61 @@ class ProfilController extends Controller
             'objectif_epargne_pct' => $data['objectif_epargne_pct'],
             'epargne_salaire_pct'  => $data['epargne_salaire_pct'],
             'jour_bilan_email'     => $data['jour_bilan_email'],
+            'jour_debut_mois'      => ! empty($data['jour_debut_mois'])
+                ? max(1, min(28, (int) $data['jour_debut_mois']))
+                : 1,
             'mode_discret'         => !empty($data['mode_discret']),
         ]);
 
         return back()->with('success_prefs', 'Préférences enregistrées avec succès.');
+    }
+
+    public function markOnboardingDone(): \Illuminate\Http\JsonResponse
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        $user->update(['onboarding_done' => true]);
+        return response()->json(['ok' => true]);
+    }
+
+    public function exportDonnees(Request $request): Response
+    {
+        /** @var User $user */
+        $user = Auth::user();
+
+        $payload = [
+            'exported_at' => now()->toIso8601String(),
+            'application' => 'EcoPoche',
+            'utilisateur' => $user->only([
+                'id', 'name', 'prenom', 'nom', 'email', 'role', 'devise',
+                'quota_taux', 'created_at', 'updated_at',
+            ]),
+            'categories'  => $user->categories()->get()->makeHidden([]),
+            'budgets'     => Budget::where('user_id', $user->id)
+                ->with(['depenses.categorie', 'revenus'])
+                ->orderByDesc('annee')->orderByDesc('mois')
+                ->get(),
+            'dettes'      => Dette::where('user_id', $user->id)
+                ->with('remboursements')
+                ->get(),
+            'recurrences' => Recurrence::where('user_id', $user->id)->get(),
+            'alertes'     => Alerte::where('user_id', $user->id)->orderByDesc('created_at')->limit(500)->get(),
+            'activite'    => ActivityLog::where('user_id', $user->id)->orderByDesc('created_at')->limit(200)->get(),
+        ];
+
+        ActivityLog::create([
+            'user_id'     => $user->id,
+            'action'      => 'export_donnees_rgpd',
+            'description' => 'Export des données personnelles (JSON).',
+            'ip_address'  => $request->ip(),
+        ]);
+
+        $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        $filename = 'ecopoche_donnees_' . now()->format('Y-m-d') . '.json';
+
+        return response($json, 200, [
+            'Content-Type'        => 'application/json; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
     }
 }

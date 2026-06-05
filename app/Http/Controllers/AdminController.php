@@ -27,7 +27,10 @@ class AdminController extends Controller
             'action'      => $action,
             'description' => $description,
             'ip_address'  => request()->ip(),
-            'meta'        => array_merge($meta, ['par' => Auth::id()]),
+            'meta'        => array_merge($meta, [
+                'par'        => Auth::id(),
+                'user_agent' => substr((string) request()->userAgent(), 0, 255),
+            ]),
         ]);
     }
 
@@ -43,6 +46,8 @@ class AdminController extends Controller
 
         if ($search) {
             $query->where(fn($q) => $q->where('name', 'like', "%{$search}%")
+                ->orWhere('prenom', 'like', "%{$search}%")
+                ->orWhere('nom', 'like', "%{$search}%")
                 ->orWhere('email', 'like', "%{$search}%"));
         }
 
@@ -67,20 +72,27 @@ class AdminController extends Controller
         if (!$this->authUser()->isSuperAdmin()) abort(403);
 
         $data = $request->validate([
-            'name'  => ['required', 'string', 'max:100'],
-            'email' => ['required', 'email', 'unique:users,email'],
-            'role'  => ['required', 'in:admin,user'],
+            'prenom' => ['required', 'string', 'max:100'],
+            'nom'    => ['required', 'string', 'max:100'],
+            'email'  => ['required', 'email', 'unique:users,email'],
+            'role'   => ['required', 'in:admin,user'],
+        ], [
+            'prenom.required' => 'Le prénom est obligatoire.',
+            'nom.required'    => 'Le nom est obligatoire.',
         ]);
 
         $mdpProvisoire = Str::random(10);
 
         $user = User::create([
-            'name'       => $data['name'],
+            'prenom'     => $data['prenom'],
+            'nom'        => $data['nom'],
+            'name'       => trim($data['prenom'] . ' ' . $data['nom']),
             'email'      => $data['email'],
             'role'       => $data['role'],
-            'password'   => Hash::make($mdpProvisoire),
-            'is_active'  => true,
-            'created_by' => Auth::id(),
+            'password'             => Hash::make($mdpProvisoire),
+            'must_change_password' => true,
+            'is_active'            => true,
+            'created_by'           => Auth::id(),
         ]);
 
         try {
@@ -89,7 +101,7 @@ class AdminController extends Controller
 
         $this->logAction($user, 'compte_cree', "Compte créé par l'administrateur.", ['role' => $data['role']]);
 
-        return back()->with('success', "Compte de {$user->name} créé. Identifiants envoyés par email.");
+        return back()->with('success', "Compte de {$user->full_name} créé. Identifiants envoyés par email.");
     }
 
     public function toggleActif(User $user)
@@ -103,7 +115,7 @@ class AdminController extends Controller
         $label  = $user->is_active ? 'réactivé' : 'suspendu';
         $this->logAction($user, $action, "Compte {$label} par l'administrateur.");
 
-        return back()->with('success', "Compte de {$user->name} {$label}.");
+        return back()->with('success', "Compte de {$user->full_name} {$label}.");
     }
 
     public function impersonner(User $user)
@@ -111,12 +123,20 @@ class AdminController extends Controller
         if (!$this->authUser()->isSuperAdmin()) abort(403);
         if ($user->id === Auth::id()) return back();
 
-        $this->logAction($user, 'impersonnification', 'Accès impersonné par le super admin.');
+        if ($user->isSuperAdmin()) {
+            return back()->with('error', 'Impossible d\'accéder au compte d\'un autre super administrateur.');
+        }
 
-        session(['impersonnation_id' => Auth::id()]);
+        $adminId = Auth::id();
+        $this->logAction($user, 'impersonnification', 'Accès impersonné par le super admin.', [
+            'admin_id' => $adminId,
+        ]);
+
+        session(['impersonnation_id' => $adminId]);
         Auth::login($user);
+        request()->session()->regenerate();
 
-        return redirect()->route('dashboard')->with('info', "Vous naviguez en tant que {$user->name}.");
+        return redirect()->route('dashboard')->with('info', "Vous naviguez en tant que {$user->full_name}.");
     }
 
     public function stopImpersonner()
@@ -129,6 +149,7 @@ class AdminController extends Controller
 
         session()->forget('impersonnation_id');
         Auth::login($admin);
+        request()->session()->regenerate();
 
         return redirect()->route('admin.index')->with('success', 'Impersonnification terminée.');
     }
@@ -138,17 +159,23 @@ class AdminController extends Controller
         if (!$this->authUser()->isSuperAdmin()) abort(403);
 
         $data = request()->validate([
-            'name'                     => ['required', 'string', 'max:100'],
-            'email'                    => ['required', 'email', 'unique:users,email,' . $user->id],
-            'role'                     => ['required', 'in:super_admin,admin,user'],
-            'is_active'                => ['boolean'],
-            'new_password'             => ['nullable', 'string', 'min:8', 'confirmed'],
+            'prenom'                    => ['required', 'string', 'max:100'],
+            'nom'                       => ['required', 'string', 'max:100'],
+            'email'                     => ['required', 'email', 'unique:users,email,' . $user->id],
+            'role'                      => ['required', 'in:super_admin,admin,user'],
+            'is_active'                 => ['boolean'],
+            'new_password'              => ['nullable', 'string', 'min:8', 'confirmed'],
             'new_password_confirmation' => ['nullable', 'string'],
+        ], [
+            'prenom.required' => 'Le prénom est obligatoire.',
+            'nom.required'    => 'Le nom est obligatoire.',
         ]);
 
         $ancienRole = $user->role;
         $updates = [
-            'name'      => $data['name'],
+            'prenom'    => $data['prenom'],
+            'nom'       => $data['nom'],
+            'name'      => trim($data['prenom'] . ' ' . $data['nom']),
             'email'     => $data['email'],
             'role'      => $data['role'],
             'is_active' => $data['is_active'] ?? $user->is_active,
@@ -156,7 +183,8 @@ class AdminController extends Controller
 
         $mdpChange = false;
         if (!empty($data['new_password'])) {
-            $updates['password'] = Hash::make($data['new_password']);
+            $updates['password']             = Hash::make($data['new_password']);
+            $updates['must_change_password'] = true;
             $mdpChange = true;
         }
 
@@ -166,7 +194,7 @@ class AdminController extends Controller
         if ($mdpChange) $desc .= ' Mot de passe redéfini manuellement.';
         $this->logAction($user, 'compte_modifie', $desc, ['champs' => array_keys($data)]);
 
-        $msg = "Compte de {$user->name} mis à jour.";
+        $msg = "Compte de {$user->full_name} mis à jour.";
         if ($mdpChange) $msg .= ' Mot de passe modifié.';
 
         return back()->with('success', $msg);
@@ -177,7 +205,10 @@ class AdminController extends Controller
         if (!$this->authUser()->isSuperAdmin()) abort(403);
 
         $nouveauMdp = Str::random(10);
-        $user->update(['password' => Hash::make($nouveauMdp)]);
+        $user->update([
+            'password'             => Hash::make($nouveauMdp),
+            'must_change_password' => true,
+        ]);
 
         try {
             Mail::to($user->email)->send(new CompteProvisoire($user, $nouveauMdp));
@@ -185,7 +216,7 @@ class AdminController extends Controller
 
         $this->logAction($user, 'mdp_reinitialise', 'Mot de passe réinitialisé par l\'administrateur.');
 
-        return back()->with('success', "Mot de passe de {$user->name} réinitialisé : {$nouveauMdp}");
+        return back()->with('success', "Mot de passe de {$user->full_name} réinitialisé : {$nouveauMdp}");
     }
 
     public function logs(User $user)

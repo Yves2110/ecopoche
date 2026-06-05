@@ -1,4 +1,4 @@
-<x-layouts.app titre="Logs — {{ $user->name }}">
+﻿<x-layouts.app titre="Logs - {{ $user->full_name }}">
 
 <div class="flex items-center gap-3 mb-6">
     <a href="{{ route('admin.index') }}" class="p-2 rounded-lg hover:bg-[#F3F4F6] transition-colors text-[#6B7280]">
@@ -6,7 +6,7 @@
     </a>
     <div>
         <h1 class="font-headline text-2xl font-bold text-[#002452]">Logs d'activité</h1>
-        <p class="text-sm text-[#6B7280]">{{ $user->name }} &bull; {{ $user->email }}</p>
+        <p class="text-sm text-[#6B7280]">{{ $user->full_name }} &bull; {{ $user->email }}</p>
     </div>
 </div>
 

@@ -1,24 +1,34 @@
-<x-layouts.app title="Revenus" pageTitle="Revenus" pageSubtitle="Gestion du salaire et des gains variables" monthSelector>
+<x-layouts.app title="Revenus" pageTitle="Revenus" pageSubtitle="Gestion du salaire et des gains variables"
+    monthSelector :period-mois="$mois" :period-annee="$annee" :periode-label="$periodeLabel" period-route="revenus.index">
 
-{{-- ===== SÉLECTEUR MOIS ===== --}}
-<div class="flex items-center justify-between mb-5 flex-wrap gap-3">
-    <div class="flex items-center gap-2">
-        <a href="{{ route('revenus.index', ['mois' => $mois == 1 ? 12 : $mois-1, 'annee' => $mois == 1 ? $annee-1 : $annee]) }}"
-           class="p-1.5 rounded-lg border border-[#E5E7EB] hover:bg-gray-50 transition-colors">
-            <span class="material-symbols-outlined text-[#002452]">chevron_left</span>
-        </a>
-        <span class="text-base font-bold text-[#1F2937] min-w-32 text-center">
-            {{ \Carbon\Carbon::createFromDate($annee, $mois, 1)->translatedFormat('F Y') }}
-        </span>
-        <a href="{{ route('revenus.index', ['mois' => $mois == 12 ? 1 : $mois+1, 'annee' => $mois == 12 ? $annee+1 : $annee]) }}"
-           class="p-1.5 rounded-lg border border-[#E5E7EB] hover:bg-gray-50 transition-colors">
-            <span class="material-symbols-outlined text-[#002452]">chevron_right</span>
-        </a>
+{{-- ===== SÉLECTEUR PÉRIODE ===== --}}
+<x-period-nav :mois="$mois" :annee="$annee" :periode-label="$periodeLabel" route-name="revenus.index" class="mb-5" />
+
+@if($estPeriodePassee ?? false)
+<div class="soft-card p-4 mb-4 flex items-start gap-3 border-[#E5E7EB] bg-[#F8FAFC]">
+    <span class="material-symbols-outlined text-[#6B7280]">inventory_2</span>
+    <div>
+        <p class="font-semibold text-sm text-[#374151]">Période clôturée</p>
+        <p class="text-xs text-[#6B7280] mt-0.5">Consultation seule. Les revenus et le salaire de cette période ne peuvent plus être modifiés.</p>
     </div>
-    <a href="{{ route('revenus.index') }}" class="text-xs text-[#006c49] font-semibold hover:underline">
-        Mois courant →
-    </a>
 </div>
+@elseif($estPeriodeFuture ?? false)
+<div class="soft-card p-4 mb-4 flex items-start gap-3 border-blue-200 bg-blue-50">
+    <span class="material-symbols-outlined text-blue-600">event_upcoming</span>
+    <div>
+        <p class="font-semibold text-sm text-blue-900">Période à venir</p>
+        <p class="text-xs text-blue-700 mt-0.5">Vous pouvez déjà préparer le salaire fixe. Les revenus variables seront à saisir quand la période sera active.</p>
+    </div>
+</div>
+@elseif(($estPeriodeCourante ?? true) && (int) $budget->salaire_fixe === 0 && $revenus->isEmpty())
+<div class="soft-card p-4 mb-4 flex items-start gap-3 border-amber-200 bg-amber-50">
+    <span class="material-symbols-outlined text-amber-600">edit_calendar</span>
+    <div>
+        <p class="font-semibold text-sm text-amber-900">Nouvelle période — {{ $periodeLabel }}</p>
+        <p class="text-xs text-amber-700 mt-0.5">Saisissez votre salaire fixe pour cette période. Les bonus du mois précédent ne sont pas repris automatiquement.</p>
+    </div>
+</div>
+@endif
 
 {{-- ===== KPI REVENUS ===== --}}
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
@@ -88,7 +98,7 @@
         <div class="soft-card p-5">
             <h3 class="font-headline text-base font-semibold text-[#1F2937] mb-4 flex items-center gap-2">
                 <span class="material-symbols-outlined text-[#002452]">wallet</span>
-                Salaire fixe du mois
+                Salaire fixe — {{ $periodeLabel }}
             </h3>
             <form method="POST" action="{{ route('revenus.salaire.update', $budget) }}" class="flex gap-3 items-end flex-wrap">
                 @csrf
@@ -101,10 +111,11 @@
                                value="{{ old('salaire_fixe', (int)$budget->salaire_fixe) }}"
                                inputmode="numeric" pattern="[0-9]*"
                                class="flex-1 pr-3 py-2.5 text-sm bg-transparent outline-none"
-                               placeholder="0" />
+                               placeholder="0"
+                               @if($estPeriodePassee ?? false) disabled @endif />
                     </div>
                 </div>
-                <button type="submit" class="btn-primary flex items-center gap-1.5">
+                <button type="submit" class="btn-primary flex items-center gap-1.5" @if($estPeriodePassee ?? false) disabled @endif>
                     <span class="material-symbols-outlined text-base">save</span>
                     Enregistrer
                 </button>
@@ -112,6 +123,18 @@
             @error('salaire_fixe')
                 <p class="text-[#EF4444] text-xs mt-2">{{ $message }}</p>
             @enderror
+
+            @if((int) $budget->salaire_fixe === 0 && !($estPeriodePassee ?? false))
+            <form method="POST" action="{{ route('revenus.salaire.copier_precedent') }}" class="mt-3">
+                @csrf
+                <input type="hidden" name="mois" value="{{ $mois }}" />
+                <input type="hidden" name="annee" value="{{ $annee }}" />
+                <button type="submit" class="text-xs font-semibold text-[#002452] hover:underline flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">content_copy</span>
+                    Reprendre le salaire du mois précédent
+                </button>
+            </form>
+            @endif
 
             {{-- Épargne programmée sur salaire --}}
             @if($epargnesSalairePct > 0 && $budget->salaire_fixe > 0)
@@ -140,6 +163,7 @@
         </div>
 
         {{-- Formulaire ajout revenu variable --}}
+        @if(!($estPeriodePassee ?? false) && !($estPeriodeFuture ?? false))
         <div class="soft-card p-5">
             <h3 class="font-headline text-base font-semibold text-[#1F2937] mb-1 flex items-center gap-2">
                 <span class="material-symbols-outlined text-[#006c49]">add_circle</span>
@@ -162,7 +186,10 @@
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-[#6B7280] mb-1.5 uppercase tracking-wide">Date</label>
-                        <input type="date" name="date" value="{{ now()->format('Y-m-d') }}"
+                        <input type="date" name="date"
+                               value="{{ old('date', ($estPeriodeCourante ?? true) ? now()->format('Y-m-d') : $debutPeriode->format('Y-m-d')) }}"
+                               min="{{ $debutPeriode->format('Y-m-d') }}"
+                               max="{{ $finPeriode->format('Y-m-d') }}"
                                class="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-[#002452] focus:ring-2 focus:ring-[#002452]/10" />
                     </div>
                 </div>
@@ -204,25 +231,26 @@
                 </button>
             </form>
         </div>
+        @endif
     </div>
 
     {{-- ===== COLONNE DROITE : Liste des revenus ===== --}}
     <div class="col-span-12 lg:col-span-5">
         <div class="soft-card overflow-hidden">
             <div class="px-5 py-4 border-b border-[#E5E7EB] bg-white flex justify-between items-center">
-                <h3 class="font-headline text-base font-semibold text-[#1F2937]">Revenus du mois</h3>
+                <h3 class="font-headline text-base font-semibold text-[#1F2937]">Revenus de la période</h3>
                 <span class="badge-blue">{{ $revenus->count() }} entrée(s)</span>
             </div>
 
             @if($revenus->isEmpty())
             <div class="p-8 text-center">
                 <span class="material-symbols-outlined text-4xl text-[#E5E7EB]">payments</span>
-                <p class="text-sm text-[#6B7280] mt-2">Aucun revenu variable ce mois.</p>
+                <p class="text-sm text-[#6B7280] mt-2">Aucun revenu variable sur cette période.</p>
             </div>
             @else
             <div class="divide-y divide-[#E5E7EB]">
                 @foreach($revenus as $revenu)
-                <div class="p-4" x-data="{ debloquerOpen: false }">
+                <div class="p-4" x-data="{ debloquerOpen: false, editing: false }">
                     <div class="flex items-start justify-between gap-3">
                         <div class="flex items-center gap-3 flex-1">
                             <div class="w-9 h-9 rounded-lg {{ $revenu->type === 'bonus' ? 'bg-[#dbeafe]' : 'bg-[#fef3c7]' }} flex items-center justify-center flex-shrink-0">
@@ -239,17 +267,64 @@
                         </div>
                         <div class="text-right flex-shrink-0">
                             <p class="font-bold text-sm text-[#006c49]">+{{ number_format((int)$revenu->montant_brut, 0, ',', ' ') }} FCFA</p>
-                            <form method="POST" action="{{ route('revenus.destroy', $revenu) }}" onsubmit="return confirm('Supprimer ce revenu ?')">
-                                @csrf @method('DELETE')
-                                <button type="submit" class="text-[10px] text-[#EF4444] hover:underline mt-0.5">Supprimer</button>
-                            </form>
+                            @if(!($estPeriodePassee ?? false))
+                            <div class="flex items-center justify-end gap-2 mt-0.5">
+                                @if(!$revenu->dette_id)
+                                <button type="button" @click="editing = !editing" class="text-[10px] text-[#002452] hover:underline">Modifier</button>
+                                @endif
+                                <form method="POST" action="{{ route('revenus.destroy', $revenu) }}" onsubmit="return confirm('Supprimer ce revenu ?')" class="inline">
+                                    @csrf @method('DELETE')
+                                    <button type="submit" class="text-[10px] text-[#EF4444] hover:underline">Supprimer</button>
+                                </form>
+                            </div>
+                            @endif
                         </div>
                     </div>
 
-                    @if($revenu->quota_applique)
+                    @if(!$revenu->dette_id && !($estPeriodePassee ?? false))
+                    <div x-show="editing" x-cloak class="mt-3 p-3 bg-[#F8FAFC] border border-[#E5E7EB] rounded-lg">
+                        <form method="POST" action="{{ route('revenus.update', $revenu) }}" class="grid grid-cols-2 gap-2">
+                            @csrf @method('PUT')
+                            <div>
+                                <label class="block text-[10px] font-semibold text-[#6B7280] uppercase mb-1">Type</label>
+                                <select name="type" class="w-full px-2 py-1.5 border border-[#E5E7EB] rounded-lg text-xs bg-white">
+                                    <option value="bonus" @selected($revenu->type === 'bonus')>Bonus</option>
+                                    <option value="extra" @selected($revenu->type === 'extra')>Extra</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-[#6B7280] uppercase mb-1">Montant</label>
+                                <input type="number" name="montant_brut" value="{{ (int) $revenu->montant_brut }}" min="1" required
+                                       class="w-full px-2 py-1.5 border border-[#E5E7EB] rounded-lg text-xs" />
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-[#6B7280] uppercase mb-1">Date</label>
+                                <input type="date" name="date" value="{{ $revenu->date->format('Y-m-d') }}" required
+                                       class="w-full px-2 py-1.5 border border-[#E5E7EB] rounded-lg text-xs" />
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-[#6B7280] uppercase mb-1">Description</label>
+                                <input type="text" name="description" value="{{ $revenu->description }}"
+                                       class="w-full px-2 py-1.5 border border-[#E5E7EB] rounded-lg text-xs" />
+                            </div>
+                            <div class="col-span-2 flex justify-end gap-2">
+                                <button type="button" @click="editing = false" class="px-3 py-1 text-xs border border-[#E5E7EB] rounded-lg">Annuler</button>
+                                <button type="submit" class="btn-primary text-xs px-3 py-1">Enregistrer</button>
+                            </div>
+                        </form>
+                    </div>
+                    @endif
+
+                    @if($revenu->dette_id || $revenu->remboursement_id)
+                    <div class="mt-2 ml-12">
+                        <span class="text-[10px] bg-[#d1fae5] text-[#065f46] font-bold px-2 py-0.5 rounded-full">
+                            100 % dépensable (prêt / emprunt) : {{ number_format((int)$revenu->montant_brut, 0, ',', ' ') }} FCFA
+                        </span>
+                    </div>
+                    @elseif($revenu->quota_applique)
                     <div class="mt-2 ml-12 flex items-center gap-3 flex-wrap">
                         <span class="text-[10px] bg-[#d1fae5] text-[#065f46] font-bold px-2 py-0.5 rounded-full">
-                            Dépensable (30%) : {{ number_format((int)$revenu->montant_quota, 0, ',', ' ') }} FCFA
+                            Dépensable ({{ auth()->user()->quota_taux ?? 30 }}%) : {{ number_format((int)$revenu->montant_quota, 0, ',', ' ') }} FCFA
                         </span>
                         <span class="text-[10px] bg-[#ede9fe] text-[#5b21b6] font-bold px-2 py-0.5 rounded-full">
                             Réserve (70%) : {{ number_format((int)$revenu->montant_dispo, 0, ',', ' ') }} FCFA

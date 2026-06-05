@@ -1,11 +1,11 @@
-<x-layouts.app titre="Administration — Comptes">
+﻿<x-layouts.app titre="Administration - Comptes">
 
 {{-- Bannière impersonnification active --}}
 @if(session('impersonnation_id'))
 <div class="bg-[#D97706] text-white text-sm px-4 py-2.5 flex items-center justify-between mb-5 rounded-xl border border-[#D97706]/50">
     <span class="flex items-center gap-2 font-medium">
         <span class="material-symbols-outlined text-base">switch_account</span>
-        Navigation en tant que <strong>{{ auth()->user()->name }}</strong>
+        Navigation en tant que <strong>{{ auth()->user()->full_name }}</strong>
     </span>
     <form method="POST" action="{{ route('admin.stop_impersonner') }}">
         @csrf
@@ -91,13 +91,20 @@
             </h3>
             <form method="POST" action="{{ route('admin.comptes.store') }}">
                 @csrf
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                     <div>
-                        <label class="block text-xs font-semibold text-[#6B7280] mb-1.5 uppercase tracking-wide">Nom complet</label>
-                        <input type="text" name="name" value="{{ old('name') }}" required
-                               class="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-[#002452] focus:ring-2 focus:ring-[#002452]/10"
-                               placeholder="Jean Dupont" />
-                        @error('name')<p class="text-[#EF4444] text-xs mt-1">{{ $message }}</p>@enderror
+                        <label class="block text-xs font-semibold text-[#6B7280] mb-1.5 uppercase tracking-wide">Prénom</label>
+                        <input type="text" name="prenom" value="{{ old('prenom') }}" required
+                               class="w-full px-3 py-2.5 border @error('prenom') border-[#EF4444] @else border-[#E5E7EB] @enderror rounded-lg text-sm focus:outline-none focus:border-[#002452] focus:ring-2 focus:ring-[#002452]/10"
+                               placeholder="Jean" />
+                        @error('prenom')<p class="text-[#EF4444] text-xs mt-1">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-[#6B7280] mb-1.5 uppercase tracking-wide">Nom</label>
+                        <input type="text" name="nom" value="{{ old('nom') }}" required
+                               class="w-full px-3 py-2.5 border @error('nom') border-[#EF4444] @else border-[#E5E7EB] @enderror rounded-lg text-sm focus:outline-none focus:border-[#002452] focus:ring-2 focus:ring-[#002452]/10"
+                               placeholder="Dupont" />
+                        @error('nom')<p class="text-[#EF4444] text-xs mt-1">{{ $message }}</p>@enderror
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-[#6B7280] mb-1.5 uppercase tracking-wide">Email</label>
@@ -133,7 +140,7 @@
 </div>
 
 {{-- Tableau des comptes --}}
-<div class="soft-card overflow-x-auto" x-data="{ editId: null, editName: '', editEmail: '', editRole: '' }">
+<div class="soft-card overflow-x-auto" x-data="{ editId: null, editPrenom: '', editNom: '', editEmail: '', editRole: '' }">
 
     {{-- Barre outils --}}
     <div class="px-5 py-4 border-b border-[#E5E7EB] flex items-center gap-3 flex-wrap bg-white">
@@ -173,7 +180,7 @@
                 'admin'       => ['bg' => '#EEF2FF', 'text' => '#4f46e5', 'label' => 'Admin'],
                 default       => ['bg' => '#F3F4F6', 'text' => '#6B7280', 'label' => 'Utilisateur'],
             };
-            $initials = strtoupper(substr($u->name, 0, 1));
+            $initials = strtoupper(substr($u->prenom ?: $u->name, 0, 1));
             $colors   = ['#6366F1','#006c49','#D97706','#DC2626','#002452'];
             $avatarBg = $colors[$u->id % count($colors)];
         @endphp
@@ -186,7 +193,7 @@
                     <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold text-[10px]"
                          style="background:{{ $avatarBg }}">{{ $initials }}</div>
                     <div class="min-w-0">
-                        <p class="text-xs font-semibold text-[#1F2937] truncate">{{ $u->name }}</p>
+                        <p class="text-xs font-semibold text-[#1F2937] truncate">{{ $u->full_name }}</p>
                         <p class="text-[10px] text-[#6B7280] truncate">{{ $u->email }}</p>
                     </div>
                 </div>
@@ -222,7 +229,7 @@
                     @if($u->id !== auth()->id())
 
                     {{-- Éditer --}}
-                    <button @click="editId === {{ $u->id }} ? editId = null : (editId = {{ $u->id }}, editName = '{{ addslashes($u->name) }}', editEmail = '{{ $u->email }}', editRole = '{{ $u->role }}')"
+                    <button @click="editId === {{ $u->id }} ? editId = null : (editId = {{ $u->id }}, editPrenom = '{{ addslashes($u->prenom) }}', editNom = '{{ addslashes($u->nom) }}', editEmail = '{{ $u->email }}', editRole = '{{ $u->role }}')"
                             class="p-1.5 rounded-lg text-[#6B7280] hover:text-[#002452] hover:bg-[#EEF2FF] transition-colors" title="Modifier">
                         <span class="material-symbols-outlined text-base">edit</span>
                     </button>
@@ -235,7 +242,7 @@
 
                     {{-- Réinitialiser mot de passe --}}
                     <form method="POST" action="{{ route('admin.comptes.reset_password', $u) }}"
-                          onsubmit="return confirm('Réinitialiser le mot de passe de {{ addslashes($u->name) }} ? Un nouveau sera généré.')">
+                          onsubmit="return confirm('Réinitialiser le mot de passe de {{ addslashes($u->full_name) }} ? Un nouveau sera généré.')">
                         @csrf
                         <button type="submit" title="Réinitialiser le mot de passe"
                                 class="p-1.5 rounded-lg text-[#6B7280] hover:text-[#4f46e5] hover:bg-[#EEF2FF] transition-colors">
@@ -276,10 +283,15 @@
             <div x-show="editId === {{ $u->id }}" x-transition class="mt-2 border-t border-[#E5E7EB] pt-3">
                 <form method="POST" action="{{ route('admin.comptes.update', $u) }}">
                     @csrf @method('PUT')
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-[#6B7280] mb-1 uppercase tracking-wide">Prénom</label>
+                            <input type="text" name="prenom" x-model="editPrenom" required
+                                   class="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-[#002452] focus:ring-2 focus:ring-[#002452]/10" />
+                        </div>
                         <div>
                             <label class="block text-xs font-semibold text-[#6B7280] mb-1 uppercase tracking-wide">Nom</label>
-                            <input type="text" name="name" x-model="editName" required
+                            <input type="text" name="nom" x-model="editNom" required
                                    class="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-[#002452] focus:ring-2 focus:ring-[#002452]/10" />
                         </div>
                         <div>
@@ -305,17 +317,25 @@
                         </p>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-xs font-semibold text-[#6B7280] mb-1 uppercase tracking-wide">Nouveau mot de passe</label>
-                                <input type="password" name="new_password" minlength="8"
-                                       placeholder="Laisser vide = pas de changement"
-                                       class="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-[#D97706] focus:ring-2 focus:ring-[#D97706]/10 bg-white" />
+                                <x-password-input
+                                    name="new_password"
+                                    label="Nouveau mot de passe"
+                                    placeholder="Laisser vide = pas de changement"
+                                    minlength="8"
+                                    autocomplete="new-password"
+                                    errorKey="new_password"
+                                    inputClass="focus:border-[#D97706] focus:ring-[#D97706]/10 py-2"
+                                />
                                 <p class="text-[10px] text-[#9CA3AF] mt-0.5">Min. 8 caractères</p>
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-[#6B7280] mb-1 uppercase tracking-wide">Confirmer</label>
-                                <input type="password" name="new_password_confirmation"
-                                       placeholder="Répéter le mot de passe"
-                                       class="w-full px-3 py-2 border border-[#E5E7EB] rounded-lg text-sm focus:outline-none focus:border-[#D97706] focus:ring-2 focus:ring-[#D97706]/10 bg-white" />
+                                <x-password-input
+                                    name="new_password_confirmation"
+                                    label="Confirmer"
+                                    placeholder="Répéter le mot de passe"
+                                    autocomplete="new-password"
+                                    inputClass="focus:border-[#D97706] focus:ring-[#D97706]/10 py-2"
+                                />
                             </div>
                         </div>
                     </div>

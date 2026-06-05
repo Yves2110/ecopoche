@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Récapitulatif hebdomadaire — EcoPoche</title>
+<title>Récapitulatif hebdomadaire - EcoPoche</title>
 <style>
   body { margin:0; padding:0; background:#F3F4F6; font-family:'Segoe UI',Arial,sans-serif; color:#1F2937; }
   .wrapper { max-width:600px; margin:32px auto; background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,.08); }
@@ -35,11 +35,11 @@
 <div class="wrapper">
   <div class="header">
     <h1>EcoPoche</h1>
-    <p>Récapitulatif budgétaire — {{ now()->translatedFormat('d F Y') }}</p>
+    <p>Récapitulatif budgétaire - {{ now()->translatedFormat('d F Y') }}</p>
   </div>
 
   <div class="body">
-    <p style="font-size:14px; margin:0 0 20px">Bonjour <strong>{{ $user->name }}</strong>, voici l'état de votre budget pour le mois de <strong>{{ \Carbon\Carbon::createFromDate($budget->annee, $budget->mois, 1)->translatedFormat('F Y') }}</strong>.</p>
+    <p style="font-size:14px; margin:0 0 20px">Bonjour <strong>{{ $user->full_name }}</strong>, voici l'état de votre budget pour la période <strong>{{ \App\Services\BudgetPeriodService::label($user, $budget->mois, $budget->annee) }}</strong>.</p>
 
     @php
       $barColor = $ratio >= 1 ? '#DC2626' : ($ratio >= 0.70 ? '#D97706' : '#006c49');
@@ -62,14 +62,14 @@
       </div>
     </div>
 
-    <div class="label" style="font-size:11px;color:#6B7280;margin-bottom:4px">Consommation du budget — {{ $barWidth }}%</div>
+    <div class="label" style="font-size:11px;color:#6B7280;margin-bottom:4px">Consommation du budget - {{ $barWidth }}%</div>
     <div class="progress-bar">
       <div class="progress-fill" style="width:{{ $barWidth }}%; background:{{ $barColor }}"></div>
     </div>
     <p style="font-size:11px;color:#6B7280;margin:4px 0 20px">
       {{ $barWidth }}% consommé
       @if($solde < 0)
-        — Budget dépassé de {{ number_format((int)abs($solde), 0, ',', "\u{00A0}") }} FCFA
+        - Budget dépassé de {{ number_format((int)abs($solde), 0, ',', "\u{00A0}") }} FCFA
       @endif
     </p>
 
@@ -91,12 +91,24 @@
     </table>
     @endif
 
+    @php
+      $conseilRecap = match (true) {
+          $solde < 0 => 'Budget dépassé : reportez les dépenses non essentielles et ciblez vos 3 plus grosses catégories ci-dessus.',
+          $ratio >= 0.9 => 'Zone critique : limitez les dépenses jusqu\'à la fin du mois.',
+          $ratio >= 0.7 => 'Surveillez vos sorties : vous avez consommé plus de 70 % du budget.',
+          default => 'Bon rythme : pensez à verser le surplus vers votre épargne.',
+      };
+    @endphp
+    <p style="font-size:12px;color:#374151;margin:16px 0;padding:12px;background:#F0F4FF;border-radius:8px;border:1px solid #E0E7FF;">
+      <strong>Conseil de la semaine :</strong> {{ $conseilRecap }}
+    </p>
+
     <a href="{{ url('/dashboard') }}" class="btn">Voir mon tableau de bord</a>
   </div>
 
   <div class="footer">
     EcoPoche &mdash; Gestion budgétaire personnelle &bull; Vous recevez ce mail car vous êtes inscrit sur EcoPoche.<br>
-    Pour se désinscrire, rendez-vous dans vos <a href="{{ url('/parametres') }}" style="color:#6B7280">paramètres</a>.
+    Pour se désinscrire, rendez-vous dans votre <a href="{{ url('/profil') }}" style="color:#6B7280">profil</a>.
   </div>
 </div>
 </body>

@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ResolvesBudgetPeriod;
 use App\Models\Budget;
 use App\Models\Epargne;
 use App\Models\ObjectifEpargne;
 use App\Models\Revenu;
+use App\Services\BudgetPeriodService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 
 class EpargneController extends Controller
 {
+    use ResolvesBudgetPeriod;
     private function getBudgetOuCreer(int $mois, int $annee): Budget
     {
         return Budget::firstOrCreate(
@@ -51,7 +54,7 @@ class EpargneController extends Controller
                 // Épargne sur salaire fixe
                 $cumul += $b->salaire_fixe * $pctSalaire;
                 // Réserve bonus (70% des revenus variables)
-                $cumul += $b->revenus->where('quota_applique', true)->sum('montant_dispo');
+                $cumul += \App\Models\Revenu::sumReserve($b->revenus);
             }
 
             $cumul = (int) round($cumul);
@@ -63,8 +66,13 @@ class EpargneController extends Controller
 
     public function index(Request $request)
     {
-        $mois  = (int) $request->get('mois', now()->month);
-        $annee = (int) $request->get('annee', now()->year);
+        $user = Auth::user();
+        ['mois' => $mois, 'annee' => $annee] = $this->resolveMoisAnnee($request, $user, allowFuture: true);
+
+        $periodeLabel       = BudgetPeriodService::label($user, $mois, $annee);
+        $estPeriodeCourante = BudgetPeriodService::estPeriodeCourante($user, $mois, $annee);
+        $estPeriodePassee   = BudgetPeriodService::estPeriodePassee($user, $mois, $annee);
+        $estPeriodeFuture   = BudgetPeriodService::estPeriodeFuture($user, $mois, $annee);
 
         $budget  = $this->getBudgetOuCreer($mois, $annee);
         $epargne = $budget->epargne;
@@ -77,26 +85,31 @@ class EpargneController extends Controller
             ->orderBy('date_fin')
             ->get();
 
-        // Historique 12 derniers mois (suivi mensuel)
+        // Historique : 12 dernières périodes budgétaires
         $historique = [];
-        for ($i = 11; $i >= 0; $i--) {
-            $date = now()->subMonths($i);
-            $b = Budget::where('user_id', Auth::id())
-                ->where('mois', $date->month)
-                ->where('annee', $date->year)
+        $pm = $mois;
+        $pa = $annee;
+        for ($i = 0; $i < 12; $i++) {
+            $b = Budget::where('user_id', $user->id)
+                ->where('mois', $pm)
+                ->where('annee', $pa)
                 ->with('epargne')
                 ->first();
 
             $historique[] = [
-                'label'    => $date->translatedFormat('M Y'),
+                'label'    => BudgetPeriodService::label($user, $pm, $pa),
                 'objectif' => (int) ($b?->epargne?->objectif ?? 0),
                 'reel'     => (int) ($b?->epargne?->reel ?? 0),
                 'deficit'  => $b?->epargne ? (int) max(0, $b->epargne->objectif - $b->epargne->reel) : 0,
-                'mois'     => $date->month,
-                'annee'    => $date->year,
-                'actif'    => $date->month == $mois && $date->year == $annee,
+                'mois'     => $pm,
+                'annee'    => $pa,
+                'actif'    => $pm === $mois && $pa === $annee,
             ];
+            $prec = BudgetPeriodService::periodePrecedente($pm, $pa);
+            $pm   = $prec['mois'];
+            $pa   = $prec['annee'];
         }
+        $historique = array_reverse($historique);
 
         $totalObjectif   = collect($historique)->sum('objectif');
         $totalReel       = collect($historique)->sum('reel');
@@ -108,7 +121,8 @@ class EpargneController extends Controller
         return view('epargne.index', compact(
             'budget', 'epargne', 'mois', 'annee',
             'objectifs', 'historique',
-            'totalObjectif', 'totalReel', 'totalDeficit', 'tauxRealisation'
+            'totalObjectif', 'totalReel', 'totalDeficit', 'tauxRealisation',
+            'periodeLabel', 'estPeriodeCourante', 'estPeriodePassee', 'estPeriodeFuture',
         ));
     }
 
@@ -116,6 +130,10 @@ class EpargneController extends Controller
     public function updateMensuel(Request $request, Budget $budget)
     {
         $this->authorize('update', $budget);
+
+        if (BudgetPeriodService::estPeriodePassee(Auth::user(), $budget->mois, $budget->annee)) {
+            return back()->withErrors(['objectif' => 'Cette période est clôturée.']);
+        }
 
         $data = $request->validate([
             'objectif' => ['required', 'integer', 'min:0'],

@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Depense extends Model
 {
     protected $fillable = [
-        'budget_id', 'categorie_id', 'montant',
+        'budget_id', 'dette_id', 'remboursement_id',
+        'categorie_id', 'montant',
         'date', 'note', 'imprevue',
     ];
 

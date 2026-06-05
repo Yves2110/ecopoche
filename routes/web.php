@@ -6,11 +6,13 @@ use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\RevenusController;
 use App\Http\Controllers\DepensesController;
+use App\Http\Controllers\DettesController;
 use App\Http\Controllers\EpargneController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AlertesController;
 use App\Http\Controllers\RapportsController;
 use App\Http\Controllers\ProfilController;
+use App\Http\Controllers\RecurrenceController;
 
 // Redirection racine
 Route::get('/', function () {
@@ -21,16 +23,27 @@ Route::get('/', function () {
 // URL : https://ton-site.com/cron/{CRON_TOKEN}
 // Doit être appelée chaque minute par un service externe
 Route::get('/cron/{token}', function (string $token) {
-    if (!config('app.cron_token') || $token !== config('app.cron_token')) {
+    if (! config('app.cron_token') || ! hash_equals((string) config('app.cron_token'), $token)) {
+        logger()->warning('Cron: tentative avec token invalide', ['ip' => request()->ip()]);
         abort(403);
     }
+
     \Illuminate\Support\Facades\Artisan::call('schedule:run');
-    return response()->json([
-        'ok'     => true,
-        'time'   => now()->toDateTimeString(),
-        'output' => \Illuminate\Support\Facades\Artisan::output(),
+    $scheduleOutput = \Illuminate\Support\Facades\Artisan::output();
+
+    \Illuminate\Support\Facades\Artisan::call('queue:work', [
+        '--stop-when-empty' => true,
+        '--max-time'        => 50,
     ]);
-})->name('cron.run');
+    $queueOutput = \Illuminate\Support\Facades\Artisan::output();
+
+    return response()->json([
+        'ok'      => true,
+        'time'    => now()->toDateTimeString(),
+        'schedule'=> $scheduleOutput,
+        'queue'   => $queueOutput,
+    ]);
+})->middleware('throttle:cron')->name('cron.run');
 
 // ---- Routes publiques (guests) ----
 Route::middleware('guest')->group(function () {
@@ -62,9 +75,11 @@ Route::middleware('auth')->group(function () {
     Route::prefix('depenses')->name('depenses.')->group(function () {
         Route::get('/',                          [DepensesController::class, 'index'])->name('index');
         Route::post('/store',                    [DepensesController::class, 'store'])->name('store');
+        Route::put('/{depense}',                 [DepensesController::class, 'update'])->name('update');
         Route::delete('/{depense}',              [DepensesController::class, 'destroy'])->name('destroy');
         Route::post('/categories',               [DepensesController::class, 'storeCategorie'])->name('categories.store');
         Route::post('/categories/plafonds',      [DepensesController::class, 'updateCategories'])->name('categories.plafonds');
+        Route::post('/import-csv',                [DepensesController::class, 'importCsv'])->middleware('throttle:imports')->name('import.csv');
     });
 
     // ---- Alertes ----
@@ -93,16 +108,24 @@ Route::middleware('auth')->group(function () {
     // ---- Profil / Paramètres ----
     Route::prefix('profil')->name('profil.')->middleware('throttle:profil')->group(function () {
         Route::get('/',                          [ProfilController::class, 'index'])->name('index');
+        Route::get('/activite',                  [ProfilController::class, 'activite'])->name('activite');
+        Route::get('/export-donnees',            [ProfilController::class, 'exportDonnees'])->middleware('throttle:exports')->name('export.donnees');
+        Route::get('/recurrences',               [RecurrenceController::class, 'index'])->name('recurrences.index');
+        Route::post('/recurrences',              [RecurrenceController::class, 'store'])->name('recurrences.store');
+        Route::post('/recurrences/{recurrence}/toggle', [RecurrenceController::class, 'toggle'])->name('recurrences.toggle');
+        Route::post('/recurrences/{recurrence}/generer', [RecurrenceController::class, 'genererMaintenant'])->name('recurrences.generer');
+        Route::delete('/recurrences/{recurrence}', [RecurrenceController::class, 'destroy'])->name('recurrences.destroy');
         Route::put('/infos',                     [ProfilController::class, 'updateInfos'])->name('update.infos');
         Route::put('/password',                  [ProfilController::class, 'updateMotDePasse'])->name('update.password');
         Route::put('/preferences',               [ProfilController::class, 'updatePreferences'])->name('update.preferences');
         Route::post('/categories',               [ProfilController::class, 'storeCategorie'])->name('categories.store');
         Route::put('/categories/{categorie}',    [ProfilController::class, 'updateCategorie'])->name('categories.update');
         Route::delete('/categories/{categorie}', [ProfilController::class, 'destroyCategorie'])->name('categories.destroy');
+        Route::post('/onboarding-done',          [ProfilController::class, 'markOnboardingDone'])->name('onboarding.done');
     });
 
     // ---- Rapports ----
-    Route::prefix('rapports')->name('rapports.')->group(function () {
+    Route::prefix('rapports')->name('rapports.')->middleware('throttle:exports')->group(function () {
         Route::get('/',                       [RapportsController::class, 'index'])->name('index');
         Route::get('/export/csv',             [RapportsController::class, 'exportCsv'])->name('export.csv');
         Route::get('/export/pdf',             [RapportsController::class, 'exportPdf'])->name('export.pdf');
@@ -118,8 +141,21 @@ Route::middleware('auth')->group(function () {
     Route::prefix('revenus')->name('revenus.')->group(function () {
         Route::get('/',                                [RevenusController::class, 'index'])->name('index');
         Route::post('/salaire/{budget}',              [RevenusController::class, 'updateSalaire'])->name('salaire.update');
+        Route::post('/salaire/copier-precedent',      [RevenusController::class, 'copierSalaireMoisPrecedent'])->name('salaire.copier_precedent');
         Route::post('/store',                         [RevenusController::class, 'storeRevenu'])->name('store');
+        Route::put('/{revenu}',                       [RevenusController::class, 'updateRevenu'])->name('update');
         Route::post('/debloquer/{revenu}',            [RevenusController::class, 'debloquerReserve'])->name('debloquer');
         Route::delete('/{revenu}',                    [RevenusController::class, 'destroyRevenu'])->name('destroy');
+    });
+
+    // ---- Dettes (Emprunts & Prêts) ----
+    Route::prefix('dettes')->name('dettes.')->group(function () {
+        Route::get('/',                                  [DettesController::class, 'index'])->name('index');
+        Route::post('/',                                 [DettesController::class, 'store'])->name('store');
+        Route::get('/{dette}',                           [DettesController::class, 'show'])->name('show');
+        Route::put('/{dette}',                           [DettesController::class, 'update'])->name('update');
+        Route::delete('/{dette}',                        [DettesController::class, 'destroy'])->name('destroy');
+        Route::post('/{dette}/remboursement',            [DettesController::class, 'storeRemboursement'])->name('remboursement.store');
+        Route::delete('/remboursement/{remboursement}',  [DettesController::class, 'destroyRemboursement'])->name('remboursement.destroy');
     });
 });

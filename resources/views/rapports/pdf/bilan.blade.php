@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8"/>
@@ -70,8 +70,8 @@
 <body>
 
 <div class="header">
-    <h1>EcoPoche — Bilan Mensuel</h1>
-    <p>{{ $user->name }} &nbsp;·&nbsp; {{ $user->email }}</p>
+    <h1>EcoPoche - Bilan Mensuel</h1>
+    <p>{{ $user->full_name }} &nbsp;·&nbsp; {{ $user->email }}</p>
     <span class="badge">{{ $moisLabel }}</span>
 </div>
 
@@ -81,9 +81,9 @@
     @php
         $santeClass = match($sante) { 'critique'=>'rouge', 'attention'=>'jaune', default=>'' };
         $santeMsg   = match($sante) {
-            'sain'      => 'Budget maîtrisé — dépenses en bonne trajectoire.',
-            'attention' => 'Attention — plus de 70% des revenus dépensés.',
-            'critique'  => 'Budget dépassé — dépenses excèdent les revenus.',
+            'sain'      => 'Budget maîtrisé - dépenses en bonne trajectoire.',
+            'attention' => 'Attention - plus de 70% des revenus dépensés.',
+            'critique'  => 'Budget dépassé - dépenses excèdent les revenus.',
             default     => 'Aucun revenu configuré pour ce mois.',
         };
     @endphp
@@ -140,7 +140,7 @@
                     <tr>
                         <td>{{ $dep->date->format('d/m') }}</td>
                         <td>
-                            {{ $dep->note ?: ($dep->categorie?->nom ?? '—') }}
+                            {{ $dep->note ?: ($dep->categorie?->nom ?? '-') }}
                             @if($dep->imprevue)<span class="badge badge-red">Imprévue</span>@endif
                         </td>
                         <td>{{ $dep->categorie?->nom ?? 'Autres' }}</td>
@@ -174,7 +174,7 @@
                     @foreach($revenus->where('quota_applique', true) as $rev)
                     <tr>
                         <td style="text-transform:capitalize;">{{ $rev->type }}</td>
-                        <td>{{ $rev->description ?? '—' }}</td>
+                        <td>{{ $rev->description ?? '-' }}</td>
                         <td class="r">{{ number_format((int)$rev->montant_brut, 0, ',', ' ') }}</td>
                         <td class="r" style="color:#006c49;">{{ number_format((int)$rev->montant_dispo, 0, ',', ' ') }}</td>
                         <td class="r" style="color:#002452;">{{ number_format((int)$rev->montant_quota, 0, ',', ' ') }}</td>
@@ -239,10 +239,98 @@
         </div>
     </div>
 
+    {{-- Emprunts & Prêts --}}
+    @if(isset($dettesData) && $dettesData['dettes']->isNotEmpty())
+    <p class="section-title" style="margin-top:20px;">Emprunts & Prêts</p>
+
+    <table style="margin-bottom:10px;">
+        <tr>
+            <td style="width:48%;padding:8px 10px;border:1px solid #E5E7EB;background:#F8FAFC;border-radius:6px;">
+                <div class="kpi-label">Emprunts actifs</div>
+                <div class="kpi-value red">{{ $dettesData['nbEmpruntsActifs'] }} - {{ number_format($dettesData['totalEmpruntsRestant'], 0, ',', ' ') }} FCFA restant</div>
+            </td>
+            <td style="width:4%;"></td>
+            <td style="width:48%;padding:8px 10px;border:1px solid #E5E7EB;background:#F8FAFC;border-radius:6px;">
+                <div class="kpi-label">Prêts actifs</div>
+                <div class="kpi-value green">{{ $dettesData['nbPretsActifs'] }} - {{ number_format($dettesData['totalPretsRestant'], 0, ',', ' ') }} FCFA restant</div>
+            </td>
+        </tr>
+    </table>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Contrepartie</th>
+                <th class="r">Initial</th>
+                <th class="r">Remboursé</th>
+                <th class="r">Restant</th>
+                <th>Statut</th>
+                <th>Échéance</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($dettesData['dettes'] as $d)
+            <tr>
+                <td style="text-transform:capitalize;">{{ $d->type }}</td>
+                <td>{{ $d->partie }}</td>
+                <td class="r">{{ number_format((int) $d->montant_initial, 0, ',', ' ') }}</td>
+                <td class="r" style="color:#006c49;">{{ number_format((int) $d->montant_rembourse, 0, ',', ' ') }}</td>
+                <td class="r" style="color:#EF4444;font-weight:700;">{{ number_format((int) $d->montant_restant, 0, ',', ' ') }}</td>
+                <td>
+                    @if($d->statut === 'solde')
+                        <span class="badge badge-green">Soldé</span>
+                    @elseif($d->statut === 'en_retard')
+                        <span class="badge badge-red">En retard</span>
+                    @else
+                        En cours
+                    @endif
+                </td>
+                <td>{{ $d->date_echeance ? $d->date_echeance->format('d/m/Y') : '-' }}</td>
+            </tr>
+            @endforeach
+        </tbody>
+    </table>
+
+    @if($dettesData['remboursementsMois']->isNotEmpty())
+    <p class="section-title" style="margin-top:12px;">Remboursements du mois</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Contrepartie</th>
+                <th class="r">Montant</th>
+                <th>Note</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($dettesData['remboursementsMois'] as $r)
+            <tr>
+                <td>{{ $r->date->format('d/m') }}</td>
+                <td style="text-transform:capitalize;">{{ $r->dette->type ?? '' }}</td>
+                <td>{{ $r->dette->partie ?? '' }}</td>
+                <td class="r" style="color:#006c49;font-weight:700;">{{ number_format((int) $r->montant, 0, ',', ' ') }}</td>
+                <td>{{ $r->note ?? '-' }}</td>
+            </tr>
+            @endforeach
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="3">Total remboursé ce mois</td>
+                <td class="r" style="color:#006c49;">{{ number_format((int) $dettesData['remboursementsMois']->sum('montant'), 0, ',', ' ') }} FCFA</td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+    @endif
+    @endif
+
 </div>
 
 <div class="footer">
-    Généré par EcoPoche le {{ now()->translatedFormat('d F Y à H:i') }}
+    Généré par EcoPoche le {{ now()->translatedFormat('d F Y à H:i') }}<br>
+    Astuces : récurrences mensuelles (Paramètres), import CSV (page Dépenses), export de vos données (RGPD) depuis le profil.
 </div>
 
 </body>

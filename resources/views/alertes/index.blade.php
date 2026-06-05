@@ -1,4 +1,4 @@
-<x-layouts.app title="Notifications" pageTitle="Notifications" pageSubtitle="Alertes & messages système">
+﻿<x-layouts.app title="Notifications" pageTitle="Notifications" pageSubtitle="Période en cours : {{ $periodeLabel ?? '' }} — alertes budget & dettes">
 
 @php
 $config = [
@@ -10,6 +10,10 @@ $config = [
     'epargne_deficit'  => ['icon' => 'savings',           'color' => '#D97706', 'bg' => '#fef3c7', 'label' => 'Déficit épargne'],
     'reajustement'     => ['icon' => 'tune',              'color' => '#6366F1', 'bg' => '#ede9fe', 'label' => 'Réajustement'],
     'quota_applique'   => ['icon' => 'account_balance',   'color' => '#002452', 'bg' => '#e0e7ff', 'label' => 'Quota appliqué'],
+    'echeance_proche'  => ['icon' => 'schedule',          'color' => '#D97706', 'bg' => '#fef3c7', 'label' => 'Échéance J-7'],
+    'echeance_j1'      => ['icon' => 'event_busy',        'color' => '#DC2626', 'bg' => '#fee2e2', 'label' => 'Échéance demain'],
+    'echeance_depassee'=> ['icon' => 'error',             'color' => '#DC2626', 'bg' => '#fee2e2', 'label' => 'Échéance dépassée'],
+    'remboursement_partiel' => ['icon' => 'payments',   'color' => '#6366F1', 'bg' => '#ede9fe', 'label' => 'Remboursement'],
 ];
 @endphp
 
@@ -105,72 +109,7 @@ $config = [
             </p>
             @endif
 
-            {{-- Conseils affichés directement pour alertes actionnables --}}
-            @if(in_array($alerte->type, ['critique', 'attention', 'plafond_depasse', 'epargne_deficit']))
-            <div class="mt-3 rounded-xl p-3 space-y-2"
-                 style="background: {{ $cfg['bg'] }}; border: 1px solid {{ $cfg['color'] }}33">
-
-                @if($alerte->type === 'critique')
-                    @php $suggestions = $meta['suggestions'] ?? null; @endphp
-                    <p class="text-xs font-semibold text-[#374151] flex items-center gap-1 mb-2">
-                        <span class="material-symbols-outlined text-sm" style="color:{{ $cfg['color'] }}">assignment_late</span>
-                        Actions immédiates recommandées
-                    </p>
-                    <ul class="text-xs space-y-1.5 text-[#4B5563]">
-                        <li class="flex items-start gap-2"><span class="material-symbols-outlined text-sm text-[#DC2626] mt-px">block</span>Geler toutes les dépenses non essentielles jusqu'à la fin du mois.</li>
-                        <li class="flex items-start gap-2"><span class="material-symbols-outlined text-sm text-[#6366F1] mt-px">lock_open</span>Envisagez de débloquer une partie de votre réserve si disponible.</li>
-                        <li class="flex items-start gap-2"><span class="material-symbols-outlined text-sm text-[#D97706] mt-px">remove_shopping_cart</span>Réduisez les sorties, loisirs et achats en ligne.</li>
-                        @if($suggestions)
-                        <li class="flex items-start gap-2 font-medium text-[#374151]"><span class="material-symbols-outlined text-sm mt-px" style="color:{{ $cfg['color'] }}">bar_chart</span>{{ $suggestions }}</li>
-                        @endif
-                    </ul>
-                    <a href="{{ route('depenses.index') }}" class="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors hover:opacity-80" style="color:{{ $cfg['color'] }};border-color:{{ $cfg['color'] }}33;background:white">
-                        <span class="material-symbols-outlined text-sm">receipt_long</span>Voir mes dépenses
-                    </a>
-
-                @elseif($alerte->type === 'attention')
-                    <p class="text-xs font-semibold text-[#374151] flex items-center gap-1 mb-2">
-                        <span class="material-symbols-outlined text-sm" style="color:{{ $cfg['color'] }}">tips_and_updates</span>
-                        Conseils pour rester dans le budget
-                    </p>
-                    <ul class="text-xs space-y-1.5 text-[#4B5563]">
-                        <li class="flex items-start gap-2"><span class="material-symbols-outlined text-sm text-[#D97706] mt-px">edit_note</span>Notez chaque dépense avant de la faire, même les petites.</li>
-                        <li class="flex items-start gap-2"><span class="material-symbols-outlined text-sm text-[#D97706] mt-px">local_grocery_store</span>Faites une seule course groupée au lieu de plusieurs petits achats.</li>
-                        <li class="flex items-start gap-2"><span class="material-symbols-outlined text-sm text-[#D97706] mt-px">directions_walk</span>Limitez les déplacements et transports non planifiés.</li>
-                    </ul>
-
-                @elseif($alerte->type === 'plafond_depasse')
-                    @php $cat = $meta['categorie'] ?? 'cette catégorie'; $depasse = $meta['depasse'] ?? 0; @endphp
-                    <p class="text-xs font-semibold text-[#374151] flex items-center gap-1 mb-2">
-                        <span class="material-symbols-outlined text-sm" style="color:{{ $cfg['color'] }}">assignment_late</span>
-                        Plafond {{ $cat }} dépassé — que faire ?
-                    </p>
-                    <ul class="text-xs space-y-1.5 text-[#4B5563]">
-                        <li class="flex items-start gap-2"><span class="material-symbols-outlined text-sm text-[#DC2626] mt-px">block</span>N'ajoutez plus de dépenses dans <strong>{{ $cat }}</strong> ce mois.</li>
-                        <li class="flex items-start gap-2"><span class="material-symbols-outlined text-sm text-[#D97706] mt-px">tune</span>Ajustez votre plafond le mois prochain si ce montant est récurrent.</li>
-                        <li class="flex items-start gap-2"><span class="material-symbols-outlined text-sm text-[#006c49] mt-px">swap_horiz</span>Compensez en réduisant une autre catégorie de {{ number_format($depasse, 0, ',', ' ') }} FCFA.</li>
-                    </ul>
-                    <a href="{{ route('depenses.index') }}" class="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors hover:opacity-80" style="color:{{ $cfg['color'] }};border-color:{{ $cfg['color'] }}33;background:white">
-                        <span class="material-symbols-outlined text-sm">tune</span>Gérer les plafonds
-                    </a>
-
-                @elseif($alerte->type === 'epargne_deficit')
-                    @php $deficit = $meta['deficit'] ?? 0; $objectif = $meta['objectif'] ?? 0; @endphp
-                    <p class="text-xs font-semibold text-[#374151] flex items-center gap-1 mb-2">
-                        <span class="material-symbols-outlined text-sm" style="color:{{ $cfg['color'] }}">tips_and_updates</span>
-                        Rattraper le déficit d'épargne
-                    </p>
-                    <ul class="text-xs space-y-1.5 text-[#4B5563]">
-                        <li class="flex items-start gap-2"><span class="material-symbols-outlined text-sm text-[#D97706] mt-px">remove_shopping_cart</span>Réduisez loisirs et sorties d'environ {{ number_format($deficit / 2, 0, ',', ' ') }} FCFA.</li>
-                        <li class="flex items-start gap-2"><span class="material-symbols-outlined text-sm text-[#D97706] mt-px">savings</span>Versez le déficit manuellement dans votre objectif d'épargne.</li>
-                        <li class="flex items-start gap-2"><span class="material-symbols-outlined text-sm text-[#006c49] mt-px">trending_up</span>Envisagez de ramener votre objectif à {{ number_format($objectif * 0.8, 0, ',', ' ') }} FCFA le mois prochain.</li>
-                    </ul>
-                    <a href="{{ route('epargne.index') }}" class="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors hover:opacity-80" style="color:#006c49;border-color:#006c4933;background:white">
-                        <span class="material-symbols-outlined text-sm">savings</span>Aller à l'épargne
-                    </a>
-                @endif
-            </div>
-            @endif
+            @include('alertes.partials.conseils', ['alerte' => $alerte, 'meta' => $meta, 'cfg' => $cfg])
             @endif
         </div>
 
