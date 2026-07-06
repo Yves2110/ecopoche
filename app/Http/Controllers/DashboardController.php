@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ResolvesBudgetPeriod;
 use App\Models\Budget;
+use App\Models\Categorie;
 use App\Models\Depense;
 use App\Models\Epargne;
 use App\Models\ObjectifEpargne;
@@ -34,6 +35,11 @@ class DashboardController extends Controller
             ['user_id' => $user->id, 'mois' => $mois, 'annee' => $annee],
             ['salaire_fixe' => 0, 'solde_charges' => 0, 'epargne_objectif' => 0]
         );
+
+        $categories = Categorie::where('user_id', $user->id)
+            ->where('is_active', true)
+            ->orderBy('ordre')
+            ->get();
 
         $revenus = $budget->revenus()->get();
         $totalDepensable = Revenu::sumDepensable($revenus);
@@ -91,16 +97,40 @@ class DashboardController extends Controller
             $joursData[]   = $depensesParJour[$date] ?? 0;
         }
 
-        // Répartition par catégorie
-        $parCategorie = $budget->depenses()
-            ->with('categorie')
-            ->get()
-            ->groupBy('categorie_id')
-            ->map(fn($items) => [
-                'total'    => (int) $items->sum('montant'),
-                'nom'      => $items->first()->categorie?->nom ?? 'Autres',
-                'couleur'  => $items->first()->categorie?->couleur ?? '#6B7280',
-            ])
+        // Répartition par catégorie : chaque catégorie garde son propre total, et Imprévus
+        // affiche le total global de toutes les dépenses marquées imprévues.
+        $depensesRepart = $budget->depenses()->with('categorie')->get();
+        $imprevusCat    = $categories->firstWhere('nom', 'Imprévus');
+
+        $grouped = [];
+        foreach ($depensesRepart as $depense) {
+            $cat = $depense->categorie;
+
+            // Total par catégorie d'origine
+            $key = $cat?->id ?? 'unknown';
+            if (! isset($grouped[$key])) {
+                $grouped[$key] = [
+                    'total'   => 0,
+                    'nom'     => $cat?->nom ?? 'Autres',
+                    'couleur' => $cat?->couleur ?? '#6B7280',
+                ];
+            }
+            $grouped[$key]['total'] += (float) $depense->montant;
+        }
+
+        // Imprévus = total global des dépenses marquées imprévues
+        $imprevusExpenses = $depensesRepart->where('imprevue', true);
+        if ($imprevusExpenses->isNotEmpty()) {
+            $imprevusKey = $imprevusCat?->id ?? 'imprevus';
+            $grouped[$imprevusKey] = [
+                'total'   => (int) $imprevusExpenses->sum('montant'),
+                'nom'     => $imprevusCat?->nom ?? 'Imprévus',
+                'couleur' => $imprevusCat?->couleur ?? '#EF4444',
+            ];
+        }
+
+        $parCategorie = collect($grouped)
+            ->map(fn ($g) => ['total' => (int) $g['total'], 'nom' => $g['nom'], 'couleur' => $g['couleur']])
             ->sortByDesc('total')
             ->take(6);
 

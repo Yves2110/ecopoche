@@ -83,13 +83,42 @@ class DepensesController extends Controller
             ->whereBetween('date', [$debutPeriode, $finPeriode])
             ->get();
 
-        $parCategorie = $depensesPeriode
-            ->groupBy('categorie_id')
-            ->map(fn ($items) => [
-                'total'     => $items->sum('montant'),
-                'categorie' => $items->first()->categorie,
-                'count'     => $items->count(),
-            ])
+        // Répartition : chaque catégorie affiche son propre total (y compris les dépenses marquées
+        // imprévues qui y sont classées). La catégorie Imprévus affiche le total global de toutes
+        // les dépenses imprévues, pour une vue d'ensemble par catégorie ET par nature imprévue.
+        $imprevusCat = $categories->firstWhere('nom', 'Imprévus');
+
+        $grouped = [];
+        foreach ($depensesPeriode as $depense) {
+            $cat = $depense->categorie;
+
+            // Total par catégorie d'origine
+            $key = $cat?->id ?? 'unknown';
+            if (! isset($grouped[$key])) {
+                $grouped[$key] = ['total' => 0, 'categorie' => $cat, 'count' => 0];
+            }
+            $grouped[$key]['total'] += (float) $depense->montant;
+            $grouped[$key]['count']++;
+        }
+
+        // Imprévus = total global des dépenses marquées imprévues
+        $imprevusExpenses = $depensesPeriode->where('imprevue', true);
+        if ($imprevusExpenses->isNotEmpty()) {
+            $imprevusKey = $imprevusCat?->id ?? 'imprevus';
+            $grouped[$imprevusKey] = [
+                'total'     => (int) $imprevusExpenses->sum('montant'),
+                'categorie' => $imprevusCat ?? (object) [
+                    'nom'             => 'Imprévus',
+                    'icone'           => 'warning',
+                    'couleur'         => '#EF4444',
+                    'plafond_mensuel' => null,
+                ],
+                'count' => $imprevusExpenses->count(),
+            ];
+        }
+
+        $parCategorie = collect($grouped)
+            ->map(fn ($g) => ['total' => (int) $g['total'], 'categorie' => $g['categorie'], 'count' => $g['count']])
             ->sortByDesc('total');
 
         $totalMois = (int) $depensesPeriode->sum('montant');

@@ -145,6 +145,46 @@ class DepensesTest extends TestCase
              ->assertStatus(403);
     }
 
+    public function test_imprevues_depenses_are_grouped_under_imprevus_category(): void
+    {
+        $sante = Categorie::factory()->create([
+            'user_id' => $this->user->id,
+            'nom'     => 'Santé',
+            'couleur' => '#EF4444',
+        ]);
+        $imprevus = Categorie::factory()->create([
+            'user_id' => $this->user->id,
+            'nom'     => 'Imprévus',
+            'icone'   => 'warning',
+            'couleur' => '#EF4444',
+        ]);
+
+        $this->budget->depenses()->create([
+            'categorie_id' => $sante->id,
+            'montant'      => 5500,
+            'date'         => now(),
+            'imprevue'     => true,
+        ]);
+        $this->budget->depenses()->create([
+            'categorie_id' => $sante->id,
+            'montant'      => 1200,
+            'date'         => now(),
+            'imprevue'     => false,
+        ]);
+
+        $response = $this->get(route('depenses.index'));
+        $response->assertStatus(200);
+
+        $response->assertViewHas('parCategorie', function ($parCategorie) use ($sante, $imprevus) {
+            $imprevusGroup = $parCategorie->first(fn ($g) => $g['categorie']?->nom === 'Imprévus');
+            $santeGroup    = $parCategorie->first(fn ($g) => $g['categorie']?->id === $sante->id);
+
+            // Santé garde le total de ses deux dépenses ; Imprévus affiche le total global des imprévues
+            return $imprevusGroup && $imprevusGroup['total'] === 5500
+                && $santeGroup && $santeGroup['total'] === 6700;
+        });
+    }
+
     public function test_categorie_can_be_created(): void
     {
         $this->post(route('depenses.categories.store'), [
